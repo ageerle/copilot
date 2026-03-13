@@ -5,6 +5,8 @@ import com.alibaba.cloud.ai.copilot.service.mcp.BuiltinToolProvider;
 import cn.dev33.satoken.stp.StpUtil;
 import com.alibaba.cloud.ai.graph.RunnableConfig;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ToolContext;
@@ -30,15 +32,25 @@ public class SearchKnowledgeTool
 
     private final KnowledgeService knowledgeService;
 
-    public static final String DESCRIPTION =
-            "Search the user's knowledge base (codebase and documents) for relevant information. " +
-            "Returns matching code snippets, documentation, and file references based on semantic similarity. " +
-            "Use this when you need to find specific information in the user's project, " +
-            "such as code examples, configuration files, class definitions, or documentation. " +
-            "IMPORTANT: The 'query' parameter should describe WHAT you are looking for semantically " +
-            "(e.g. 'project introduction', 'user authentication implementation', 'database configuration'), " +
-            "NOT include user IDs, folder names, or system identifiers. " +
-            "Parameters: query (required), file_type (optional: CODE/DOCUMENT/CONFIG), top_k (optional, default 5).";
+    public static final String DESCRIPTION = """
+            Search the user's knowledge base (codebase and documents) for relevant information.
+            Returns matching code snippets, documentation, and file references based on semantic similarity.
+
+            Use this when you need to find specific information in the user's project,
+            such as code examples, configuration files, class definitions, or documentation.
+
+            IMPORTANT: The 'query' parameter should describe WHAT you are looking for semantically
+            (e.g. 'project introduction', 'user authentication implementation', 'database configuration'),
+            NOT include user IDs, folder names, or system identifiers.
+
+            IMPORTANT: Parameters must be a JSON object with the following fields:
+            - query (required): The search query describing what you are looking for
+            - file_type (optional): Filter by file type - CODE, DOCUMENT, or CONFIG
+            - top_k (optional): Number of results to return, default 5
+
+            Example call format:
+            {"query": "user authentication implementation", "file_type": "CODE", "top_k": 10}
+            """;
 
     @Override
     public String apply(SearchParams params, ToolContext toolContext) {
@@ -178,24 +190,34 @@ public class SearchKnowledgeTool
 
     /**
      * 搜索参数
+     * <p>
+     * 注意：参数必须是一个 JSON 对象。
+     * 示例: {"query": "用户认证实现", "file_type": "CODE", "top_k": 10}
+     * </p>
      */
     public static class SearchParams {
+
         /**
          * 搜索查询
          */
+        @NotBlank(message = "query is required")
         @JsonProperty("query")
+        @JsonPropertyDescription("The search query describing what you are looking for semantically. Example: 'user authentication implementation'")
         public String query;
 
         /**
          * 文件类型过滤 (可选): CODE, DOCUMENT, CONFIG
          */
         @JsonProperty("file_type")
+        @JsonPropertyDescription("Filter by file type. Must be one of: CODE, DOCUMENT, CONFIG. Optional.")
         public String fileType;
 
         /**
          * 返回结果数量 (可选,默认 5)
          */
         @JsonProperty("top_k")
+        @JsonPropertyDescription("Number of results to return. Default is 5, max is 20. Optional.")
         public Integer topK;
     }
 }
+

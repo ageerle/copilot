@@ -1,7 +1,6 @@
 import React, {useEffect, useState} from "react";
 import {createPortal} from "react-dom";
 import {GeneralSettings} from "./GeneralSettings";
-import {QuotaSettings} from "./QuotaSettings";
 import {useTranslation} from "react-i18next";
 import styled from "styled-components";
 import {ThemeMode} from "antd-style";
@@ -12,12 +11,11 @@ import ModelSettings from "@/components/Settings/ModelSettings";
 import PromptSettings from "@/components/Settings/PromptSettings";
 import MemorySettings from "@/components/Settings/MemorySettings";
 
-export type SettingsTab = "General" | "Quota" | "MCPServer" | "Knowledge" | "Models" | "Prompts" | "Memory";
+export type SettingsTab = "General" | "MCPServer" | "Knowledge" | "Models" | "Prompts" | "Memory";
 
 const isElectron = typeof window !== "undefined" && !!window.electron;
 export const TAB_KEYS = {
   GENERAL: "General" as const,
-  Quota: "Quota" as const,
   MCPServer: "MCPServer" as const,
   Knowledge: "Knowledge" as const,
   Models: "Models" as const,
@@ -93,25 +91,6 @@ export function Settings({
             strokeLinejoin="round"
             strokeWidth={2}
             d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-          />
-        </svg>
-      ),
-    },
-    {
-      id: TAB_KEYS.Quota,
-      label: t("settings.Quota"),
-      icon: (
-        <svg
-          className="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
           />
         </svg>
       ),
@@ -267,7 +246,6 @@ export function Settings({
         {/* Content */}
         <div className="flex-1 p-5 overflow-y-auto">
           {activeTab === TAB_KEYS.GENERAL && <GeneralSettings />}
-          {activeTab === TAB_KEYS.Quota && <QuotaSettings />}
           {activeTab === TAB_KEYS.MCPServer && <MCPSettings />}
           {activeTab === TAB_KEYS.Knowledge && <KnowledgeSettings />}
           {activeTab === TAB_KEYS.Models && <ModelSettings />}

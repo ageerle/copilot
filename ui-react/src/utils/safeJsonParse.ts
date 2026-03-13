@@ -7,9 +7,6 @@ export function safeJsonParse(jsonString: string): any {
   // 匹配JSON中的数值：冒号后跟16位以上的数字，但排除已经在字符串中的数字
   const processedJsonString = jsonString.replace(/":\s*(\d{16,})/g, '": "$1"');
 
-  console.log('[safeJsonParse] 原始JSON:', jsonString);
-  console.log('[safeJsonParse] 处理后JSON:', processedJsonString);
-
   return JSON.parse(processedJsonString, (key, value) => {
     // 对于已经被转换为字符串的大整数，保持为字符串
     if (typeof value === 'string' &&

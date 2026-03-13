@@ -177,7 +177,7 @@ export function Sidebar({
     return (
       <div
         className="p-3 cursor-pointer hover:bg-white/5"
-        onClick={() => openSettings(TAB_KEYS.Quota)}
+        onClick={() => openSettings(TAB_KEYS.GENERAL)}
       >
         <div className="flex items-center gap-2">
           <div
@@ -201,9 +201,6 @@ export function Sidebar({
           <div className="flex-1">
             <div className="  dark:text-white text-[14px] font-medium">
               {user?.username}
-            </div>
-            <div className="text-[13px] text-gray-400 translate uppercase">
-              {`${user?.userQuota?.tierType} plan`}
             </div>
           </div>
           <button

@@ -322,12 +322,9 @@ export default function ModelSettings() {
       onClick={() => handleProviderSelect(provider)}
     >
       <div className="sidebar-item-header">
-        <Button
-          icon={React.createElement(getProviderIcon(provider.providerCode || provider.name), {
-            style: { width: 20, height: 20 },
-          })}
-          style={{ width: '20px', height: '20px' }}
-        />
+        {React.createElement(getProviderIcon(provider.providerCode || provider.name), {
+          style: { width: 20, height: 20 },
+        })}
         <div className="sidebar-item-title">{provider.name}</div>
         <div className="sidebar-item-actions">
           <Button
@@ -486,13 +483,9 @@ export default function ModelSettings() {
       <div key={providerItem.providerId} className="provider-card">
         <div className="provider-card-header">
           <div className="provider-card-info">
-            {/* <div className="provider-card-logo-placeholder" /> */}
-            <Button
-              icon={React.createElement(getProviderIcon(providerItem.providerId ), {
-                style: { width: 20, height: 20 },
-              })}
-              style={{ width: '20px', height: '20px' }}
-            />
+            {React.createElement(getProviderIcon(providerItem.providerId), {
+              style: { width: 20, height: 20 },
+            })}
             <span className="provider-card-name-text">{displayName}</span>
           </div>
 

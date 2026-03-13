@@ -310,9 +310,11 @@ export class SSEMessageParser {
       if (this.options.enableValidation) {
         const validation = validateMessage(message, this.options);
         if (!validation.valid) {
+          console.error('[SSEMessageParser] 消息验证失败:', validation.error, message);
           throw new Error(validation.error || '消息验证失败');
         }
       }
+      console.log('[SSEMessageParser] 消息验证通过:', message.event, message.data);
 
       // 获取或创建消息状态
       let state = this.messages.get(messageId);

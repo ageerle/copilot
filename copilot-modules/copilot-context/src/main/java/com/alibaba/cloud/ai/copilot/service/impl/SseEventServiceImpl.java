@@ -28,6 +28,7 @@ public class SseEventServiceImpl implements SseEventService {
 
     /**
      * 发送SSE事件的通用方法
+     * 安全处理已关闭的连接，避免并发问题
      */
     @Override
     public void sendSseEvent(SseEmitter emitter, String eventType, Map<String, Object> data) {
@@ -37,14 +38,13 @@ public class SseEventServiceImpl implements SseEventService {
                 .name(eventType)
                 .data(dataJson);
             emitter.send(event);
-            log.debug("Sent SSE event: {} with data: {}", eventType, dataJson);
+            log.debug("Sent SSE event: {} with data length: {}", eventType, dataJson);
+        } catch (IllegalStateException e) {
+            // Emitter 已完成，静默处理
+            log.debug("SSE emitter already completed, skip event: {}", eventType);
         } catch (Exception e) {
-            log.error("Error sending SSE event: {}", eventType, e);
-            try {
-                emitter.completeWithError(e);
-            } catch (Exception ex) {
-                log.error("Error completing emitter with error", ex);
-            }
+            // 其他错误只记录日志，不尝试 completeWithError（避免级联错误）
+            log.warn("Error sending SSE event: {} - {}", eventType, e.getMessage());
         }
     }
 
@@ -97,14 +97,10 @@ public class SseEventServiceImpl implements SseEventService {
             SseEmitter.SseEventBuilder event = SseEmitter.event()
                     .data(dataJson);
             emitter.send(event);
-            log.debug("Sent OpenAI compatible content: {}", content);
+        } catch (IllegalStateException e) {
+            log.debug("SSE emitter already completed, skip chat content");
         } catch (Exception e) {
-            log.error("Error sending OpenAI compatible content", e);
-            try {
-                emitter.completeWithError(e);
-            } catch (Exception ex) {
-                log.error("Error completing emitter with error", ex);
-            }
+            log.warn("Error sending OpenAI compatible content: {}", e.getMessage());
         }
     }
 
@@ -125,8 +121,10 @@ public class SseEventServiceImpl implements SseEventService {
             emitter.send(event);
             emitter.complete();
             log.debug("SSE connection completed");
+        } catch (IllegalStateException e) {
+            log.debug("SSE emitter already completed");
         } catch (Exception e) {
-            log.error("Error completing SSE connection", e);
+            log.warn("Error completing SSE connection: {}", e.getMessage());
         }
     }
 

@@ -7,68 +7,47 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
- * 输出处理器注册中心
- * 自动收集所有 OutputTypeHandler 实现类并提供统一的处理入口
+ * 输出处理器注册表
+ * 管理各种 OutputType 对应的处理器
  */
 @Slf4j
 @Component
 public class OutputHandlerRegistry {
 
-    private final Map<OutputType, OutputTypeHandler> handlers = new HashMap<>();
+    private final Map<OutputType, OutputHandler> handlers = new HashMap<>();
+    private final OutputHandler defaultHandler = new DefaultHandler();
 
-    /**
-     * 构造函数，Spring 会自动注入所有 OutputTypeHandler 实现类
-     */
-    public OutputHandlerRegistry(List<OutputTypeHandler> handlerList) {
-        handlerList.forEach(handler -> {
-            OutputType outputType = handler.getOutputType();
-            if (handlers.containsKey(outputType)) {
-                log.warn("发现重复的处理器类型: {}, 已存在: {}, 新增: {}",
-                    outputType, handlers.get(outputType).getClass().getSimpleName(),
-                    handler.getClass().getSimpleName());
-            }
-            handlers.put(outputType, handler);
-            log.debug("注册输出处理器: {} -> {}", outputType, handler.getClass().getSimpleName());
-        });
-
-        log.info("输出处理器注册完成，共注册 {} 个处理器", handlers.size());
+    public OutputHandlerRegistry(OutputHandler modelStreamingHandler,
+                                 OutputHandler modelFinishedHandler,
+                                 OutputHandler toolFinishedHandler,
+                                 OutputHandler hookFinishedHandler) {
+        // 注册各个 Handler
+        handlers.put(OutputType.AGENT_MODEL_STREAMING, modelStreamingHandler);
+        handlers.put(OutputType.AGENT_MODEL_FINISHED, modelFinishedHandler);
+        handlers.put(OutputType.AGENT_TOOL_FINISHED, toolFinishedHandler);
+        handlers.put(OutputType.AGENT_HOOK_FINISHED, hookFinishedHandler);
     }
 
     /**
      * 处理流式输出
-     * @param output 流式输出对象
-     * @param emitter SSE 事件发射器
+     * 根据 OutputType 查找对应的 Handler 并执行
      */
-    public void handle(StreamingOutput output, SseEmitter emitter) {
-        OutputType outputType = output.getOutputType();
-        OutputTypeHandler handler = handlers.get(outputType);
-        System.out.println("当前输出类型："+outputType);
-        if (handler != null) {
-            try {
-                handler.handle(output, emitter);
-            } catch (Exception e) {
-                log.error("处理输出类型 {} 时发生异常", outputType, e);
+    public void handle(Object output, SseEmitter emitter) {
+        try {
+            if (!(output instanceof StreamingOutput streamingOutput)) {
+                log.debug("【普通输出】非 StreamingOutput 类型: {}", output.getClass().getSimpleName());
+                return;
             }
-        } else {
-            log.warn("未找到处理器，输出类型: {}", outputType);
+
+            OutputType type = streamingOutput.getOutputType();
+            OutputHandler handler = handlers.getOrDefault(type, defaultHandler);
+            handler.handle(streamingOutput, emitter);
+
+        } catch (Exception e) {
+            log.error("处理输出失败", e);
         }
-    }
-
-    /**
-     * 获取已注册的处理器数量
-     */
-    public int getHandlerCount() {
-        return handlers.size();
-    }
-
-    /**
-     * 检查是否支持某种输出类型
-     */
-    public boolean supports(OutputType outputType) {
-        return handlers.containsKey(outputType);
     }
 }

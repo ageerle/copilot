@@ -21,29 +21,53 @@ public class FileSystemController {
     private FileSystemService fileSystemService;
 
     private static final String WORKSPACE_PATH_ROOT = "workspace/";
+
     /**
-     * 获取工作空间中的文件列表
+     * 获取默认工作空间中的文件列表
      */
-    @GetMapping("/workspace/{workspacePath:.*}")
-    public ResponseEntity<?> getWorkspaceFiles(@PathVariable String workspacePath) {
+    @GetMapping("/workspace")
+    public ResponseEntity<?> getDefaultWorkspaceFiles() {
         try {
             // 解码路径参数
-            String decodedPath = workspacePath.replace("|", "/");
-            Map<String, String> files = fileSystemService.getAllFiles(WORKSPACE_PATH_ROOT + decodedPath);
+            Map<String, String> files = fileSystemService.getAllFiles(WORKSPACE_PATH_ROOT);
 
             return ResponseEntity.ok(Map.of(
-                "success", true,
-                "files", files,
-                "fileCount", files.size()
+                    "success", true,
+                    "files", files,
+                    "fileCount", files.size()
             ));
         } catch (Exception e) {
             log.error("Error getting workspace files: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
-                "success", false,
-                "error", e.getMessage()
+                    "success", false,
+                    "error", e.getMessage()
             ));
         }
     }
+
+//    /**
+//     * 获取工作空间中的文件列表
+//     */
+//    @GetMapping("/workspace/{workspacePath:.*}")
+//    public ResponseEntity<?> getWorkspaceFiles(@PathVariable String workspacePath) {
+//        try {
+//            // 解码路径参数
+//            String decodedPath = workspacePath.replace("|", "/");
+//            Map<String, String> files = fileSystemService.getAllFiles(WORKSPACE_PATH_ROOT + decodedPath);
+//
+//            return ResponseEntity.ok(Map.of(
+//                "success", true,
+//                "files", files,
+//                "fileCount", files.size()
+//            ));
+//        } catch (Exception e) {
+//            log.error("Error getting workspace files: {}", e.getMessage());
+//            return ResponseEntity.badRequest().body(Map.of(
+//                "success", false,
+//                "error", e.getMessage()
+//            ));
+//        }
+//    }
 
     /**
      * 读取工作空间中的特定文件

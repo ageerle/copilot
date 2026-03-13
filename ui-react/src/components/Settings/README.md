@@ -42,10 +42,6 @@
 - **功能**: 基础系统设置
 - **位置**: `GeneralSettings/`
 
-### 6. 配额管理 (Quota)
-- **功能**: 使用配额和限制管理
-- **位置**: `QuotaSettings/`
-
 ## 技术架构
 
 ### 组件结构
@@ -67,7 +63,6 @@ Settings/
 │   └── PromptSettings.css
 ├── MCPSettings/              # MCP服务器管理
 ├── GeneralSettings/          # 常规设置
-├── QuotaSettings/            # 配额管理
 └── README.md                 # 说明文档
 ```
 

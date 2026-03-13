@@ -25,7 +25,7 @@ public class AdminController {
     public Map<String, Object> getAppInfo() {
         Map<String, Object> info = new HashMap<>();
         info.put("name", "Spring AI Alibaba Copilot");
-        info.put("description", "AI编程助手 - 模块化架构");
+        info.put("description", "AI编程助手");
         info.put("timestamp", LocalDateTime.now());
         return info;
     }

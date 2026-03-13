@@ -574,6 +574,7 @@ export const BaseChat = ({uuid: propUuid}: { uuid?: string }) => {
                                             // 处理 SSE 格式的消息
                                             if (parsed && parsed.event) {
                                                 const eventType = parsed.event;
+                                                console.log('[customFetch] 事件类型:', eventType, '数据:', parsed.data);
 
                                                 // 对于文件操作和命令操作，使用 SSE 消息解析器
                                                 if ([SSEEventType.ADD_START, SSEEventType.ADD_PROGRESS, SSEEventType.ADD_END,
@@ -581,9 +582,11 @@ export const BaseChat = ({uuid: propUuid}: { uuid?: string }) => {
                                                      SSEEventType.DELETE_START, SSEEventType.DELETE_PROGRESS, SSEEventType.DELETE_END,
                                                      SSEEventType.LIST_PROGRESS,
                                                      SSEEventType.CMD].includes(eventType)) {
+                                                    console.log('[customFetch] 匹配到文件操作事件:', eventType);
                                                     // 异步处理文件/命令操作，不阻塞流处理
                                                     setTimeout(() => {
                                                         const messageId = parsed.messageId || `msg_${Date.now()}`;
+                                                        console.log('[customFetch] 调用 parseSSEMessage:', messageId, parsed);
                                                         parseSSEMessage(messageId, parsed);
                                                     }, 0);
                                                     continue;

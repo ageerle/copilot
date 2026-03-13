@@ -33,10 +33,8 @@ export const authService = {
 
       // 获取原始响应文本，避免JSON.parse自动转换大整数
       const rawText = await res.text()
-      console.log('[auth.getUserInfo] 原始响应文本:', rawText)
 
       const wrapper = safeJsonParse(rawText)
-      console.log('[auth.getUserInfo] 解析后数据:', wrapper)
 
       if (!res.ok || (typeof wrapper?.code === 'number' && wrapper.code !== 200)) throw wrapper
 
@@ -45,7 +43,6 @@ export const authService = {
     } catch (_) {
       try {
         const cached = localStorage.getItem('user')
-        console.log('[auth.getUserInfo] 使用缓存数据:', cached)
         return cached ? safeJsonParse(cached) as User : null
       } catch {
         return null

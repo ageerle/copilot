@@ -11,33 +11,207 @@ import { createFileWithContent } from '../WeIde/components/IDEContent/FileExplor
 import {useFileStore} from '../WeIde/stores/fileStore';
 import useTerminalStore from '@/stores/terminalSlice';
 import { eventEmitter } from './utils/EventEmitter';
-import useUserStore from '@/stores/userSlice';
 import { Message } from "ai/react";
 
-// 路径处理工具函数
-function extractFilePath(fullPath: string): string {
-  const user = useUserStore.getState().user;
-  if (!user || !user.userType || !user.id) {
-    console.warn('[SSE] 用户信息不完整，无法处理路径:', fullPath);
-    return fullPath;
+/**
+ * 规范化文件路径
+ * 后端已返回相对路径（如 hello.html 或 vue/hello.html）
+ * 这里只做兼容处理，确保路径格式正确
+ */
+function normalizeFilePath(filePath: string): string {
+  if (!filePath) return filePath;
+
+  // 1. 统一路径分隔符（Windows 反斜杠转正斜杠）
+  let path = filePath.replace(/\\/g, '/');
+
+  // 2. 去掉可能存在的 workspace/ 前缀（兼容旧格式）
+  if (path.startsWith('workspace/')) {
+    path = path.substring('workspace/'.length);
   }
 
-  // 构建workspace前缀: workspace/{userType}_{userId}/
-  const workspacePrefix = `workspace/${user.userType}_${user.id}/`;
+  return path;
+}
 
-  // 如果路径以workspace前缀开头，去掉前缀
-  if (fullPath.startsWith(workspacePrefix)) {
-    return fullPath.substring(workspacePrefix.length);
+// ==================== 伪流式输出管理器 ====================
+
+/**
+ * 文件内容缓冲区
+ * 用于存储正在流式输出的文件内容
+ */
+interface FileBuffer {
+  filePath: string;
+  content: string;
+  displayedLength: number;  // 已显示的字符数
+  isComplete: boolean;      // 是否接收完成
+}
+
+/**
+ * 伪流式输出管理器
+ * 实现文件内容的逐步显示效果
+ */
+class StreamingFileManager {
+  private buffers: Map<string, FileBuffer> = new Map();
+  private displayTimers: Map<string, NodeJS.Timeout> = new Map();
+  private refreshTimer: NodeJS.Timeout | null = null;
+  private readonly displaySpeed = 10;  // 每次显示的字符数
+  private readonly displayInterval = 60;  // 显示间隔(ms)
+  private readonly refreshDelay = 1000;  // 刷新文件列表的防抖延迟(ms)
+
+  /**
+   * 添加/追加文件内容
+   */
+  async addContent(filePath: string, content: string) {
+    let buffer = this.buffers.get(filePath);
+
+    if (!buffer) {
+      // 新文件 - 先创建文件再初始化流式输出
+      buffer = {
+        filePath,
+        content: '',
+        displayedLength: 0,
+        isComplete: false
+      };
+      this.buffers.set(filePath, buffer);
+
+      // 先创建文件，等待完成后再选中并打开
+      try {
+        await createFileWithContent(filePath, '', true);
+        selectAndOpenFile(filePath);
+        console.log('[StreamingFileManager] 创建并打开文件:', filePath);
+      } catch (err) {
+        console.error('[StreamingFileManager] 创建文件失败:', err);
+        return; // 如果创建失败，不继续处理
+      }
+    }
+
+    // 追加内容
+    buffer.content += content;
+
+    // 启动流式显示
+    this.startStreaming(filePath);
+
+    // 重置刷新定时器
+    this.scheduleRefresh();
   }
 
-  // 如果路径以workspace/开头但不是当前用户的workspace，直接返回原路径
-  if (fullPath.startsWith('workspace/')) {
-    console.warn('[SSE] 路径不属于当前用户workspace:', fullPath);
-    return fullPath;
+  /**
+   * 标记文件接收完成
+   */
+  completeFile(filePath: string) {
+    const buffer = this.buffers.get(filePath);
+    if (buffer) {
+      buffer.isComplete = true;
+    }
   }
 
-  // 如果没有workspace前缀，直接返回
-  return fullPath;
+  /**
+   * 启动流式显示
+   */
+  private startStreaming(filePath: string) {
+    // 清除已有定时器
+    const existingTimer = this.displayTimers.get(filePath);
+    if (existingTimer) {
+      clearInterval(existingTimer);
+    }
+
+    // 启动新的显示定时器
+    const timer = setInterval(() => {
+      this.displayNextChunk(filePath);
+    }, this.displayInterval);
+
+    this.displayTimers.set(filePath, timer);
+  }
+
+  /**
+   * 显示下一块内容
+   */
+  private displayNextChunk(filePath: string) {
+    const buffer = this.buffers.get(filePath);
+    if (!buffer) return;
+
+    // 检查是否已显示完毕
+    if (buffer.displayedLength >= buffer.content.length) {
+      // 内容已全部显示，检查是否完成
+      if (buffer.isComplete) {
+        const timer = this.displayTimers.get(filePath);
+        if (timer) {
+          clearInterval(timer);
+          this.displayTimers.delete(filePath);
+        }
+      }
+      return;
+    }
+
+    // 计算本次显示的内容
+    const nextLength = Math.min(
+      buffer.displayedLength + this.displaySpeed,
+      buffer.content.length
+    );
+
+    const displayContent = buffer.content.substring(0, nextLength);
+    buffer.displayedLength = nextLength;
+
+    // 更新 fileStore
+    useFileStore.getState().updateContent(filePath, displayContent, true, true);
+  }
+
+  /**
+   * 调度文件列表刷新（防抖）
+   */
+  private scheduleRefresh() {
+    // 清除已有定时器
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+    }
+
+    // 设置新定时器
+    this.refreshTimer = setTimeout(() => {
+      this.refreshFileList();
+    }, this.refreshDelay);
+  }
+
+  /**
+   * 刷新文件列表
+   */
+  private refreshFileList() {
+    // 触发文件列表刷新事件
+    window.dispatchEvent(new CustomEvent('refreshFileList'));
+    console.log('[StreamingFileManager] 文件列表已刷新');
+  }
+
+  /**
+   * 清理所有资源
+   */
+  cleanup() {
+    // 清除所有显示定时器
+    this.displayTimers.forEach(timer => clearInterval(timer));
+    this.displayTimers.clear();
+
+    // 清除刷新定时器
+    if (this.refreshTimer) {
+      clearTimeout(this.refreshTimer);
+      this.refreshTimer = null;
+    }
+
+    // 清空缓冲区
+    this.buffers.clear();
+  }
+}
+
+// 全局单例
+const streamingFileManager = new StreamingFileManager();
+
+/**
+ * 选中文件并在编辑器中打开
+ */
+function selectAndOpenFile(filePath: string) {
+  const { setSelectedPath } = useFileStore.getState();
+  setSelectedPath(filePath);
+
+  // 触发 openFile 事件，让编辑器打开文件
+  window.dispatchEvent(new CustomEvent('openFile', {
+    detail: { path: filePath }
+  }));
 }
 
 // 命令队列（复用现有实现）
@@ -84,105 +258,69 @@ const sseMessageParser = new SSEMessageParser({
   enableValidation: true,
   timeout: 30000, // 30秒
 
-  // 回调函数
+  // 回调函数 - 使用伪流式输出
   callbacks: {
     // 文件添加操作
     onAddStart: async (data: OperationCallbackData) => {
       const fileData = data.data as FileOperationData;
-      const processedPath = extractFilePath(fileData.filePath);
-      console.log('[SSE] 开始添加文件:', fileData.filePath, '->', processedPath);
+      const filePath = normalizeFilePath(fileData.filePath);
+      console.log('[SSE] 开始添加文件:', filePath);
 
-      // 创建空文件
-      await createFileWithContent(processedPath, '', true);
-
-      // 选中文件展示到预览区域
-      const { setSelectedPath } = useFileStore.getState();
-      setSelectedPath(processedPath);
+      // 创建空文件并初始化流式输出
+      await createFileWithContent(filePath, '', true);
+      await streamingFileManager.addContent(filePath, '');
     },
 
     onAddProgress: async (data: OperationCallbackData) => {
       const fileData = data.data as FileOperationData;
-      const processedPath = extractFilePath(fileData.filePath);
-      console.log('[SSE] 文件添加进度:', fileData.filePath, '->', processedPath, fileData.content?.length);
+      const filePath = normalizeFilePath(fileData.filePath);
+      const content = fileData.content || '';
+      console.log('[SSE] 文件添加进度:', filePath, '内容长度:', content.length);
 
-      // 获取当前文件内容并追加新内容
-      const currentContent = useFileStore.getState().files[processedPath] || '';
-      const newContent = currentContent + (fileData.content || '');
-
-      // 更新文件内容
-      await useFileStore.getState().updateContent(processedPath, newContent, false, true);
-
-      // 选中文件展示到预览区域
-      const { setSelectedPath } = useFileStore.getState();
-      setSelectedPath(processedPath);
+      // 使用流式管理器追加内容（即使内容为空也会创建文件）
+      await streamingFileManager.addContent(filePath, content);
     },
 
     onAddEnd: async (data: OperationCallbackData) => {
       const fileData = data.data as FileOperationData;
-      const processedPath = extractFilePath(fileData.filePath);
-      console.log('[SSE] 完成添加文件:', fileData.filePath, '->', processedPath);
+      const filePath = normalizeFilePath(fileData.filePath);
+      console.log('[SSE] 完成添加文件:', filePath);
 
-      if (fileData.content !== undefined) {
-        try {
-          await createFileWithContent(
-            processedPath,
-            fileData.content,
-            true // 自动创建目录
-          );
-        } catch (error) {
-          console.error('[SSE] 创建文件失败:', error);
-        }
-      }
+      // 标记文件接收完成
+      streamingFileManager.completeFile(filePath);
     },
 
     // 文件编辑操作
     onEditStart: async (data: OperationCallbackData) => {
       const fileData = data.data as FileOperationData;
-      const processedPath = extractFilePath(fileData.filePath);
-      console.log('[SSE] 开始编辑文件:', fileData.filePath, '->', processedPath);
+      const filePath = normalizeFilePath(fileData.filePath);
+      console.log('[SSE] 开始编辑文件:', filePath);
 
       // 删除现有文件并创建空文件
-      await useFileStore.getState().deleteFile(processedPath);
-      await createFileWithContent(processedPath, '', false);
+      await useFileStore.getState().deleteFile(filePath);
+      await createFileWithContent(filePath, '', false);
 
-      // 选中文件展示到预览区域
-      const { setSelectedPath } = useFileStore.getState();
-      setSelectedPath(processedPath);
+      // 初始化流式输出
+      await streamingFileManager.addContent(filePath, '');
     },
 
     onEditProgress: async (data: OperationCallbackData) => {
       const fileData = data.data as FileOperationData;
-      const processedPath = extractFilePath(fileData.filePath);
-      console.log('[SSE] 文件编辑进度:', fileData.filePath, '->', processedPath);
+      const filePath = normalizeFilePath(fileData.filePath);
+      const content = fileData.content || '';
+      console.log('[SSE] 文件编辑进度:', filePath, '内容长度:', content.length);
 
-      // 获取当前文件内容并追加新内容
-      const currentContent = useFileStore.getState().files[processedPath] || '';
-      const newContent = currentContent + (fileData.content || '');
-
-      // 更新文件内容
-      await useFileStore.getState().updateContent(processedPath, newContent, false, true);
-
-      // 选中文件展示到预览区域
-      const { setSelectedPath } = useFileStore.getState();
-      setSelectedPath(processedPath);
+      // 使用流式管理器追加内容
+      await streamingFileManager.addContent(filePath, content);
     },
 
     onEditEnd: async (data: OperationCallbackData) => {
       const fileData = data.data as FileOperationData;
-      const processedPath = extractFilePath(fileData.filePath);
-      console.log('[SSE] 完成编辑文件:', fileData.filePath, '->', processedPath);
+      const filePath = normalizeFilePath(fileData.filePath);
+      console.log('[SSE] 完成编辑文件:', filePath);
 
-      if (fileData.content !== undefined) {
-        try {
-          await createFileWithContent(
-            processedPath,
-            fileData.content,
-            false // 编辑时不需要创建目录
-          );
-        } catch (error) {
-          console.error('[SSE] 编辑文件失败:', error);
-        }
-      }
+      // 标记文件接收完成
+      streamingFileManager.completeFile(filePath);
     },
 
     // 文件删除操作
@@ -198,31 +336,17 @@ const sseMessageParser = new SSEMessageParser({
 
     onDeleteEnd: async (data: OperationCallbackData) => {
       const fileData = data.data as FileOperationData;
-      console.log('[SSE] 完成删除文件:', fileData.filePath);
-      
-      // 这里需要实现文件删除逻辑
-      // 可以使用文件系统的删除方法
+      const filePath = normalizeFilePath(fileData.filePath);
+      console.log('[SSE] 完成删除文件:', filePath);
+
+      // 删除文件
       try {
-        // await deleteFile(fileData.filePath);
-        console.log('[SSE] 删除文件:', fileData.filePath);
+        await useFileStore.getState().deleteFile(filePath);
+        console.log('[SSE] 已删除文件:', filePath);
       } catch (error) {
         console.error('[SSE] 删除文件失败:', error);
       }
     },
-
-    // 列表操作
-    // onListProgress: async (data: OperationCallbackData) => {
-    //   const listData = data.data as FileOperationData;
-    //   console.log('[SSE] 列表进度:', listData.filePath, listData.content?.length);
-
-    //   // 发送事件更新列表进度状态
-    //   eventEmitter.emit('list-progress-update', {
-    //     operationId: data.operationId,
-    //     filePath: listData.filePath,
-    //     content: listData.content,
-    //     isLoading: true
-    //   });
-    // },
 
     // 命令执行
     onCmd: async (data: OperationCallbackData) => {

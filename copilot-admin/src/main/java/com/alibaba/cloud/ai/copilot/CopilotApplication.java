@@ -10,7 +10,6 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 /**
  * Spring AI Alibaba Copilot 主启动类
  *
- * @author Alibaba Cloud AI Team
  */
 @SpringBootApplication
 @EnableScheduling

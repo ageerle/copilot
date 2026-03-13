@@ -5,17 +5,6 @@ import { apiUrl } from "@/api/base"
 import { safeJsonParse, safeJsonStringify } from "@/utils/safeJsonParse"
 
 
-export enum TierType {
-  FREE = "free",
-  PRO = "pro",
-  PROMAX = "promax",
-}
-export interface TierMessage {
-  startTime: Date
-  tier: TierType
-  resetTime: Date
-}
-
 export interface User {
   id: string
   username: string
@@ -25,18 +14,6 @@ export interface User {
   wechatId: string
   avatar?: string
   userType: string
-  userQuota: {
-    // 用户当前拥有的配额
-    quota: number
-    resetTime: Date
-    tierType: TierType
-    // 加油包的配额
-    refillQuota: number
-    // 该周期的额度
-    usedQuota: number
-    quotaTotal: number
-
-  }
 }
 
 interface UserState {

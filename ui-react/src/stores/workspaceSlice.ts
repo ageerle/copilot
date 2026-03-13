@@ -13,7 +13,7 @@ interface WorkspaceState {
   setFiles: (files: WorkspaceFile) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
-  fetchWorkspaceFiles: (workspacePath: string) => Promise<void>;
+  fetchWorkspaceFiles: () => Promise<void>;
   clearWorkspace: () => void;
 }
 
@@ -28,11 +28,11 @@ const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
 
   setError: (error) => set({ error }),
 
-  fetchWorkspaceFiles: async (workspacePath: string) => {
+  fetchWorkspaceFiles: async () => {
     set({ isLoading: true, error: null });
 
     try {
-      const response = await getWorkspaceFiles(workspacePath);
+      const response = await getWorkspaceFiles();
 
       if (response.success && response.files) {
         // Normalize file paths (convert backslashes to forward slashes) so IDE tree and editor use the same keys
@@ -49,10 +49,6 @@ const useWorkspaceStore = create<WorkspaceState>((set, get) => ({
           const fileStoreSetFiles = useFileStore.getState().setFiles;
           if (typeof fileStoreSetFiles === 'function') {
             await fileStoreSetFiles(normalizedFiles);
-            try {
-              // eslint-disable-next-line no-console
-              console.log('Workspace files synced to fileStore:', Object.keys(normalizedFiles).length);
-            } catch (e) {}
           }
         } catch (e) {
           // swallow errors from file store sync to avoid breaking workspace fetch

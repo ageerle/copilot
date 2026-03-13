@@ -8,10 +8,8 @@
     "delete": "delete",
     "cancel": "Cancel",
     "confirm": "Confirm",
-    "open_directory_quota": "quota panel",
     "login": "Login",
     "close": "Close",
-    "please_login": "Please sign in to view your quota",
     "format": "Format",
     "formatting": "Formatting..."
   },
@@ -106,7 +104,6 @@
     "title": "Settings",
     "language": "Language",
     "general": "General",
-    "Quota": "quota",
     "General": "General",
     "Language": "Language",
     "Knowledge": "Knowledge Base",
@@ -367,7 +364,6 @@
     "socksPortRequired": "A SOCKS proxy must specify a port number",
     "themeSystem": "Follow System",
     "backend": {
-      "enable": "Enable Backend (Beta)",
       "language": "Backend Language",
       "database": {
         "type": "Database Type",
@@ -500,18 +496,6 @@
     "contact_us": "Contact Us",
     "personal_plan": "Personal Plan"
   },
-  "usage": {
-    "usage": "Usage",
-    "monthly_usage": "quota Monthly Usage",
-    "quota_used": "quota used",
-    "remaining": "remaining",
-    "billing_cycle": "Billing Cycle",
-    "next_reset": "Next Reset",
-    "days": "days",
-    "type": "type",
-    "buy_quote": "Buy More Quota",
-    "personal_plan": "Personal Plan"
-  },
   "login": {
     "guest": "Guest",
     "title": "Please Sign In",
@@ -543,9 +527,7 @@
     "and_Gists": "and Gists",
     "continue_with_github": "Continue with GitHub",
     "chat_limit_reached": "Chat Limit Reached",
-    "chat_limit_reached_tips": "Please login to continue chatting",
-    "usage_limit_reached": "Usage Limit Reached",
-    "usage_limit_reached_tips": "You have reached the maximum usage limit. Please add quota to continue using."
+    "chat_limit_reached_tips": "Please login to continue chatting"
   },
   "register": {
     "register_success": "Registration Successful!",

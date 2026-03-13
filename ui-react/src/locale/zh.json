@@ -14,8 +14,8 @@
       "uploadSketch": "上传Sketch 或者 Figma",
       "uploadImg": "上传图片",
       "uploadWebsite": "上传网站",
-      "game": "生成一个贪吃蛇小游戏",
-      "hello": "生成一个好看的页面"
+      "game": "生成一个企业官网",
+      "hello": "生成基于ssa的翻译项目"
     },
     "errors": {
       "file_size_limit": "文件 {fileName} 超过5MB限制",
@@ -92,7 +92,6 @@
     "title": "设置",
     "language": "语言",
     "general": "常规",
-    "Quota": "次数",
     "General": "常规",
     "Knowledge": "知识库",
     "Models": "模型管理",
@@ -354,7 +353,6 @@
     "proxyUrlRequired": "请输入代理地址",
     "socksPortRequired": "SOCKS 代理必须指定端口号",
     "backend": {
-      "enable": "启用后端（测试版）",
       "language": "后端语言",
       "database": {
         "type": "数据库类型",
@@ -488,10 +486,8 @@
     "delete": "删除",
     "cancel": "取消",
     "confirm": "确认",
-    "open_directory_quota": "次数面板",
     "login": "登录",
     "close": "关闭",
-    "please_login": "请登录后查看您的使用次数",
     "format": "格式化",
     "formatting": "格式化中..."
   },
@@ -502,19 +498,6 @@
     "settings": "设置",
     "contact_us": "联系我们",
     "personal_plan": "个人计划"
-  },
-  "usage": {
-    "usage": "使用情况",
-    "monthly_usage": "次月使用",
-    "quota_used": "使用的次数",
-    "remaining": "剩余",
-    "billing_cycle": "计费周期",
-    "next_reset": "下次重置",
-    "days": "天",
-    "type": "类型",
-    "monthly_limit": "每月限额",
-    "buy_quote": "购买更多次数",
-    "personal_plan": "个人面板"
   },
   "login": {
     "guest": "游客",
@@ -547,9 +530,7 @@
     "and_Gists": "和Gists",
     "continue_with_github": "使用GitHub登录",
     "chat_limit_reached": "聊天次数已达上限",
-    "chat_limit_reached_tips": "请登录后继续聊天",
-    "usage_limit_reached": "使用次数已达上限",
-    "usage_limit_reached_tips": "您的使用次数已达上限，请购买次数"
+    "chat_limit_reached_tips": "请登录后继续聊天"
   },
   "register": {
     "register_success": "注册成功！",

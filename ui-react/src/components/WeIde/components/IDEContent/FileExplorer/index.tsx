@@ -11,11 +11,14 @@ import {useFileStore} from '@/components/WeIde/stores/fileStore';
 export function FileExplorer({ onFileSelect }: FileExplorerProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [createDialog, setCreateDialog] = useState<'file' | 'folder' | null>(null);
-  const files = useFileStore();
+  // 使用 selector 正确订阅 files 状态变化
+  const files = useFileStore((state) => state.files);
+  const fileStore = useFileStore();
+
   // Debug: log current files in store to help diagnose UI not showing files
   try {
     // eslint-disable-next-line no-console
-    console.log('FileExplorer render - files count:', files.getFiles().length, files.getFiles());
+    console.log('FileExplorer render - files count:', Object.keys(files).length, Object.keys(files));
   } catch (e) {
     // ignore
   }

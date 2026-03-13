@@ -11,7 +11,6 @@ import classNames from "classnames";
 import {ChatMode} from "./types/chat";
 import {ToastContainer} from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import {UpdateTip} from "./components/UpdateTip"
 import useInit from "./hooks/useInit";
 import {Loading} from "./components/loading";
 import TopViewContainer from "./components/TopView";
@@ -28,13 +27,8 @@ function App() {
 
     // 获取工作区文件
     useEffect(() => {
-        console.log('App useEffect triggered:', { isAuthenticated, user: user ? { id: user.id, userType: user.userType } : null });
-        if (isAuthenticated && user && user.userType && user.id) {
-            const workspacePath = `${user.userType}_${user.id}`;
-            console.log('Fetching workspace files for path:', workspacePath);
-            fetchWorkspaceFiles(workspacePath);
-        } else if (isAuthenticated && user) {
-            console.log('User authenticated but missing userType or id:', { userType: user.userType, id: user.id });
+        if (isAuthenticated && user) {
+            fetchWorkspaceFiles();
         }
     }, [isAuthenticated, user, fetchWorkspaceFiles]);
 
@@ -58,7 +52,6 @@ function App() {
                     {mode === ChatMode.Builder && !initOpen && <EditorPreviewTabs/>}
                 </div>
             </div>
-            <UpdateTip/>
             <ToastContainer
                 position="top-center"
                 autoClose={2000}

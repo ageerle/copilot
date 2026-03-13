@@ -10,8 +10,10 @@ import lombok.Getter;
 public enum ToolType {
     EDIT_FILE("edit_file", "edit-progress", "edit"),
     WRITE_FILE("write_file", "edit-progress", "add"),
+    WRITE_LINES("write_lines", "add-progress", "add"),
     READ_FILE("read_file", "read-progress", "read"),
-    LIST_DIRECTORY("list_directory", "list-progress", "list");
+    LIST_DIRECTORY("list_directory", "list-progress", "list"),
+    DELETE_FILE("delete_file", "delete-progress", "delete");
 
     private final String toolName;
     private final String eventName;

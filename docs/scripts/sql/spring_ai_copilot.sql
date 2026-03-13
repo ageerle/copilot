@@ -1,11 +1,11 @@
 /*
  Navicat Premium Dump SQL
 
- Source Server         : spring_ai_copilot
+ Source Server         : copilot
  Source Server Type    : MySQL
  Source Server Version : 80036 (8.0.36)
- Source Host           : 129.211.24.7:3306
- Source Schema         : spring_ai_copilot
+ Source Host           : 127.0.0.1:3306
+ Source Schema         : copilot
 
  Target Server Type    : MySQL
  Target Server Version : 80036 (8.0.36)

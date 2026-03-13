@@ -7,11 +7,48 @@ package com.alibaba.cloud.ai.copilot.utils;
 public class PathUtils {
 
     /**
-     * 将文件路径转换为统一格式
+     * 将文件路径转换为相对于 workspace 的相对路径
      *
      * 示例：
-     * - Windows: D:\project\alicode\copilot\workspace\index.html → workspace/index.html
-     * - Linux: /pro/aicode/workspace/src/app.vue → workspace/src/app.vue
+     * - Windows: D:\project\copilot\workspace\index.html → index.html
+     * - Windows: D:\project\copilot\workspace\vue\hello.html → vue/hello.html
+     * - Linux: /pro/copilot/workspace/src/app.vue → src/app.vue
+     *
+     * @param filePath 原始文件路径（可能包含绝对路径）
+     * @return 相对于 workspace 的相对路径（使用 / 分隔符）
+     */
+    public static String toRelativePath(String filePath) {
+        if (filePath == null || filePath.isEmpty()) {
+            return filePath;
+        }
+
+        // 1. 统一路径分隔符：将所有反斜杠替换为正斜杠
+        String normalizedPath = filePath.replace("\\", "/");
+
+        // 2. 查找 workspace 目录的位置
+        int workspaceIndex = normalizedPath.indexOf("/workspace/");
+
+        // 3. 如果找到 /workspace/，提取其之后的部分
+        if (workspaceIndex != -1) {
+            String relativePath = normalizedPath.substring(workspaceIndex + "/workspace/".length());
+            return relativePath;
+        }
+
+        // 4. 兼容：如果路径以 workspace/ 开头
+        if (normalizedPath.startsWith("workspace/")) {
+            return normalizedPath.substring("workspace/".length());
+        }
+
+        // 5. 如果没找到 workspace，返回标准化后的路径
+        return normalizedPath;
+    }
+
+    /**
+     * 将文件路径转换为统一格式（保留 workspace 前缀）
+     *
+     * 示例：
+     * - Windows: D:\project\copilot\workspace\index.html → workspace/index.html
+     * - Linux: /pro/copilot/workspace/src/app.vue → workspace/src/app.vue
      *
      * @param filePath 原始文件路径（可能包含绝对路径）
      * @return 统一格式的路径（使用 / 分隔符，从 workspace 开始）
@@ -58,42 +95,5 @@ public class PathUtils {
         return path.startsWith("workspace/") || path.equals("workspace");
     }
 
-    /**
-     * 获取 workspace 相对路径
-     * 与 normalizeWorkspacePath 功能相同，但提供更语义化的方法名
-     *
-     * @param absolutePath 绝对路径
-     * @return workspace 相对路径
-     */
-    public static String extractWorkspacePath(String absolutePath) {
-        return normalizeWorkspacePath(absolutePath);
-    }
 
-    /**
-     * 测试方法
-     */
-    public static void main(String[] args) {
-        // 测试用例
-        String[] testPaths = {
-            "D:\\project\\alicode\\copilot\\workspace\\package.json",
-            "D:\\project\\alicode\\copilot\\workspace\\index.html",
-            "D:\\project\\alicode\\copilot\\workspace\\src\\main.js",
-            "D:\\project\\alicode\\copilot\\workspace\\src\\App.vue",
-            "/pro/aicode/workspace/index.html",
-            "/pro/aicode/workspace/src/app.vue",
-            "/workspace/index.html",
-            "workspace/index.html",
-            "/path/workspace/file.txt",
-            "workspace",
-            "/workspace"
-        };
-
-        System.out.println("路径转换测试：");
-        for (String path : testPaths) {
-            String normalized = normalizeWorkspacePath(path);
-            System.out.println("原始: " + path);
-            System.out.println("转换: " + normalized);
-            System.out.println();
-        }
-    }
 }

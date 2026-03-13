@@ -5,15 +5,15 @@ import com.alibaba.cloud.ai.copilot.domain.dto.ChatRequest;
 import com.alibaba.cloud.ai.copilot.domain.dto.CreateConversationRequest;
 import com.alibaba.cloud.ai.copilot.domain.entity.ChatMessageEntity;
 import com.alibaba.cloud.ai.copilot.domain.entity.McpToolInfo;
-import com.alibaba.cloud.ai.copilot.handler.OutputHandlerRegistry;
+import com.alibaba.cloud.ai.copilot.handler.*;
 import com.alibaba.cloud.ai.copilot.hook.ConversationHistoryHook;
 import com.alibaba.cloud.ai.copilot.hook.ConversationSaveHook;
 import com.alibaba.cloud.ai.copilot.hook.LongTermMemoryHook;
 import com.alibaba.cloud.ai.copilot.interceptor.DynamicSystemPromptInterceptor;
+import com.alibaba.cloud.ai.copilot.knowledge.service.KnowledgeAvailabilityChecker;
 import com.alibaba.cloud.ai.copilot.store.DatabaseStore;
 import com.alibaba.cloud.ai.copilot.mapper.ChatMessageMapper;
 import com.alibaba.cloud.ai.copilot.mapper.McpToolInfoMapper;
-import com.alibaba.cloud.ai.copilot.mapper.ModelConfigMapper;
 import com.alibaba.cloud.ai.copilot.enums.ToolStatus;
 import com.alibaba.cloud.ai.copilot.service.mcp.BuiltinToolRegistry;
 import com.alibaba.cloud.ai.copilot.service.mcp.McpClientManager;
@@ -22,9 +22,13 @@ import com.alibaba.cloud.ai.copilot.service.ChatService;
 import com.alibaba.cloud.ai.copilot.service.ConversationService;
 import com.alibaba.cloud.ai.copilot.service.DynamicModelService;
 import com.alibaba.cloud.ai.copilot.service.SseEventService;
+import com.alibaba.cloud.ai.copilot.tools.*;
 import com.alibaba.cloud.ai.graph.NodeOutput;
 import com.alibaba.cloud.ai.graph.RunnableConfig;
 import com.alibaba.cloud.ai.graph.agent.ReactAgent;
+import com.alibaba.cloud.ai.graph.agent.extension.tools.filesystem.EditFileTool;
+import com.alibaba.cloud.ai.graph.agent.extension.tools.filesystem.GrepTool;
+import com.alibaba.cloud.ai.graph.agent.extension.tools.filesystem.ReadFileTool;
 import com.alibaba.cloud.ai.graph.agent.hook.Hook;
 import com.alibaba.cloud.ai.graph.agent.hook.summarization.SummarizationHook;
 import com.alibaba.cloud.ai.graph.agent.interceptor.ModelInterceptor;
@@ -41,6 +45,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import reactor.core.publisher.Flux;
 
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,15 +62,13 @@ public class ChatServiceImpl implements ChatService {
 
     private final AppProperties appProperties;
     private final DynamicModelService dynamicModelService;
-    private final OutputHandlerRegistry outputHandlerRegistry;
+   private final OutputHandlerRegistry outputHandlerRegistry;
     private final SseEventService sseEventService;
     private final ConversationService conversationService;
     private final ChatMessageMapper chatMessageMapper;
-    private final ModelConfigMapper modelConfigMapper;
     private final ConversationHistoryHook conversationHistoryHook;
     private final ConversationSaveHook conversationSaveHook;
     private final DynamicSystemPromptInterceptor dynamicSystemPromptInterceptor;
-    private final com.alibaba.cloud.ai.copilot.hook.MessageTraceHook messageTraceHook;
     private final McpClientManager mcpClientManager;
     private final BuiltinToolRegistry builtinToolRegistry;
     private final McpToolInfoMapper mcpToolInfoMapper;
@@ -74,12 +77,10 @@ public class ChatServiceImpl implements ChatService {
     private final KnowledgeAvailabilityChecker knowledgeAvailabilityChecker;
 
     @Override
-    public void handleBuilderMode(ChatRequest request, String userId, SseEmitter emitter) {
+    public void handleBuilderMode(ChatRequest request, SseEmitter emitter) {
         try {
             // 1. 获取或创建会话
             String conversationId = request.getConversationId();
-            log.debug("收到聊天请求: conversationId={}, userId={}, message={}",
-                    conversationId, userId, request.getMessage() != null ? request.getMessage().getContent() : "null");
 
             if (conversationId == null || conversationId.isEmpty()) {
                 // 创建新会话
@@ -91,31 +92,24 @@ public class ChatServiceImpl implements ChatService {
                 log.info("创建新会话: conversationId={}, userId={}, 原因: 请求中未提供conversationId",
                     conversationId, userIdLong);
             } else {
-                log.debug("使用现有会话: conversationId={}, userId={}", conversationId, userId);
+                log.debug("使用现有会话: conversationId={}", conversationId);
             }
 
             // 2. 获取 ChatModel
             ChatModel chatModel = dynamicModelService.getChatModelWithConfigId(request.getModelConfigId());
 
-            // 3. 获取用于摘要的模型
-            ChatModel summarizationModel = chatModel;
-
             // 4. 构建 Hooks
             List<Hook> hooks = new ArrayList<>();
 
-            // 4.1 会话历史加载 Hook（从数据库加载历史消息）
-            // 改进：只在首次请求时加载历史，后续让 ReactAgent 自己管理消息流
+            // 4.1 会话历史加载 Hook（从数据库加载历史消息）改进：只在首次请求时加载历史，后续让 ReactAgent 自己管理消息流
             hooks.add(conversationHistoryHook);
 
             // 4.2 消息压缩 Hook（当消息过多时自动压缩）
             hooks.add(SummarizationHook.builder()
-                .model(summarizationModel)
+                .model(chatModel)
                 .maxTokensBeforeSummary(appProperties.getConversation().getSummarization().getMaxTokensBeforeSummary())
                 .messagesToKeep(appProperties.getConversation().getSummarization().getMessagesToKeep())
                 .build());
-
-//            // 4.2.1 观测 Hook：用于确认 SummarizationHook 是否触发以及最终送入模型的 messages 长什么样
-//            hooks.add(messageTraceHook);
 
             // 4.3 会话保存 Hook（保存 Assistant 响应到数据库）
             // 改进：只保存工具调用完成后的最终文本响应
@@ -141,27 +135,43 @@ public class ChatServiceImpl implements ChatService {
 
             log.info("共加载 {} 个工具", allTools.size());
 
+            String rootDirectory = Paths.get(System.getProperty("user.dir") + "/workspace").toString();
+
+            String prompt = "【基础约束】\n" +
+                    "你是编程agent，使用工具在项目根目录（" + rootDirectory + "）内完成编程任务。\n\n" +
+                    "【前端开发规范 - 必须遵守】\n" +
+                    "1. 禁止手写大量CSS！必须使用 Tailwind CSS 框架\n" +
+                    "2. HTML页面必须引入 Tailwind CSS CDN：<script src=\"https://cdn.tailwindcss.com\"></script>\n" +
+                    "【技术栈】\n" +
+                    "擅长 java+vue+element 技术栈，用户没有明确编程需求时正常对话即可，" +
+                    "前端开发默认使用 HTML + Tailwind CSS，保持简洁专业的风格。";
+
             // 6.3 构建 Agent
             var agentBuilder = ReactAgent.builder()
                     .name("copilot_agent")
                     .model(chatModel)
-                    .systemPrompt(buildSystemPrompt())
+                    .systemPrompt(prompt)
                     .hooks(hooks.toArray(new Hook[0]))
                     .interceptors(interceptors.toArray(new ModelInterceptor[0]))
                     .saver(new MemorySaver())
-                    .tools(allTools.toArray(new ToolCallback[0]));
-
+                    .tools(ListDirectoryTool.createListDirectoryToolCallback(ListDirectoryTool.DESCRIPTION),
+                            GrepTool.createGrepToolCallback(GrepTool.DESCRIPTION),
+                            EditFileTool.createEditFileToolCallback(EditFileTool.DESCRIPTION),
+                            ReadFileTool.createReadFileToolCallback(ReadFileTool.DESCRIPTION),
+                            WriteLinesTool.createToolCallback(),
+                            DeleteFileTool.createToolCallback()
+                    );
             ReactAgent agent = agentBuilder.build();
 
             // 7. 设置会话ID到上下文（供 Hook 和 Interceptor 使用）
             Long userIdLong = LoginHelper.getUserId();
-            RunnableConfig.Builder configBuilder = RunnableConfig.builder()
+            RunnableConfig.Builder configBuilder = RunnableConfig.builder();
             // 7. 设置会话ID和用户ID到上下文（供 Hook 和 Interceptor 使用）
             RunnableConfig config = RunnableConfig.builder()
                 .addMetadata("conversationId", conversationId)
                 .addMetadata("user_id", String.valueOf(userIdLong))
                 // 供 LongTermMemoryHook 兜底 LLM 结构化抽取时优先使用当前会话同一个模型配置
-                .addMetadata("model_config_id", request.getModelConfigId());
+                .addMetadata("model_config_id", request.getModelConfigId()).build();
 
             // 设置偏好相关开关
             boolean enablePreferences = request.getEnablePreferences() != null
@@ -179,13 +189,9 @@ public class ChatServiceImpl implements ChatService {
                 configBuilder.store(databaseStore);
             }
 
-            RunnableConfig config = configBuilder.build();
-                .addMetadata("userId", userId)  // 添加 userId，供 KnowledgeContextHook 使用
-                .build();
-
             // 8. 保存用户消息到数据库
-            final String finalConversationId = conversationId; // 保存为 final 变量供 lambda 使用
-            final String userMessageContent = request.getMessage().getContent(); // 保存用户消息内容
+            final String finalConversationId = conversationId;
+            final String userMessageContent = request.getMessage().getContent();
 
             ChatMessageEntity userMessageEntity = new ChatMessageEntity();
             userMessageEntity.setConversationId(finalConversationId);
@@ -204,13 +210,10 @@ public class ChatServiceImpl implements ChatService {
 
             // 11. 执行 Agent
             Flux<NodeOutput> stream = agent.stream(userMessageContent, config);
-
+            // 创建 Handler Registry
+            OutputHandlerRegistry handlerRegistry = createHandlerRegistry();
             stream.subscribe(
-                output -> {
-                    if (output instanceof StreamingOutput streamingOutput) {
-                        outputHandlerRegistry.handle(streamingOutput, emitter);
-                    }
-                },
+                output -> handlerRegistry.handle(output, emitter),
                 error -> {
                     if (error instanceof WebClientResponseException wcre) {
                         // 关键：打印下游模型服务返回的错误响应体，便于定位 400 的具体原因
@@ -237,6 +240,19 @@ public class ChatServiceImpl implements ChatService {
             log.error("Unexpected error in builder mode", e);
             sseEventService.sendComplete(emitter);
         }
+    }
+
+    /**
+     * 初始化 Handler Registry
+     * 用于处理不同类型的 OutputType
+     */
+    private OutputHandlerRegistry createHandlerRegistry() {
+        return new OutputHandlerRegistry(
+                new ModelStreamingHandler(sseEventService),
+                new ModelFinishedHandler(),
+                new ToolFinishedHandler(sseEventService),
+                new HookFinishedHandler()
+        );
     }
 
     /**
@@ -270,15 +286,6 @@ public class ChatServiceImpl implements ChatService {
         return allTools;
     }
 
-    /**
-     * 构建系统提示词
-     */
-    private String buildSystemPrompt() {
-        return "工作目录在:" + appProperties.getWorkspace().getRootDirectory() +
-                java.io.File.separator + LoginHelper.getLoginUser().getUserType() + "_" +
-                LoginHelper.getLoginUser().getUserId() +
-                "\n所有的文件操作请在这个目录下进行";
-    }
 
     /**
      * 更新会话标题（如果是新会话且标题为默认值）

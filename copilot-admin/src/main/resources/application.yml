@@ -36,9 +36,9 @@ spring:
         master:
           type: ${spring.datasource.type}
           driverClassName: com.mysql.cj.jdbc.Driver
-          url: jdbc:mysql://127.0.0.1:3306/spring_ai_copilot?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
+          url: jdbc:mysql://127.0.0.1:3306/copilot?allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai
           username: root
-          password: 123456
+          password: root
 
       # HikariCP 连接池配置
       hikari:
@@ -73,7 +73,7 @@ spring:
       api-key: ${OPENAI_API_KEY:sk-your-deepseek-api-key}  # 请替换为你的实际 DeepSeek API Key
       # DeepSeek API 地址（DeepSeek 使用 OpenAI 兼容 API，但需要设置正确的 base URL）
       base-url: ${OPENAI_BASE_URL:https://api.deepseek.com}
-      
+
       # 嵌入模型配置 - Override for SiliconFlow
       embedding:
         api-key: ${SILICONFLOW_API_KEY:}

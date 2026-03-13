@@ -19,6 +19,7 @@ import java.util.Map;
  * 用于接收output.state().data()的数据结构
  */
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class StateDataDTO {
 
     @JsonProperty("input")
@@ -26,6 +27,9 @@ public class StateDataDTO {
 
     @JsonProperty("messages")
     private List<MessageDTO> messages;
+
+    @JsonProperty("_graph_execution_id_")
+    private String graphExecutionId;
 
     /**
      * Message DTO类 - 支持不同类型的消息
@@ -156,6 +160,27 @@ public class StateDataDTO {
 
         public String getContent() {
             Object value = arguments.get("content");
+            return value != null ? value.toString() : null;
+        }
+
+        /**
+         * 获取 lines 参数（WriteLinesTool 使用）
+         * 将 List<String> 转换为换行分隔的字符串
+         */
+        public String getLines() {
+            Object value = arguments.get("lines");
+            if (value instanceof List) {
+                // 将 List<String> 转换为换行分隔的字符串
+                StringBuilder sb = new StringBuilder();
+                List<?> lines = (List<?>) value;
+                for (int i = 0; i < lines.size(); i++) {
+                    if (i > 0) {
+                        sb.append("\n");
+                    }
+                    sb.append(lines.get(i));
+                }
+                return sb.toString();
+            }
             return value != null ? value.toString() : null;
         }
 

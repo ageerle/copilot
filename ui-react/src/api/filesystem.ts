@@ -22,11 +22,9 @@ export interface WorkspaceInfo {
 /**
  * 获取工作空间中的文件列表
  */
-export const getWorkspaceFiles = async (workspacePath: string): Promise<FileSystemResponse> => {
+export const getWorkspaceFiles = async (): Promise<FileSystemResponse> => {
   try {
-    // 将路径中的/替换为|以避免URL编码问题
-    const encodedPath = workspacePath.replace(/\//g, '|');
-    const response = await fetch(`/api/files/workspace/${encodedPath}`);
+    const response = await fetch('/api/files/workspace');
     const data = await response.json();
     return data;
   } catch (error) {

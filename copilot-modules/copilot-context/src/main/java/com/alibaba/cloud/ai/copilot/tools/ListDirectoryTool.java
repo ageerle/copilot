@@ -2,6 +2,8 @@ package com.alibaba.cloud.ai.copilot.tools;
 
 import com.alibaba.cloud.ai.copilot.service.mcp.BuiltinToolProvider;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonPropertyDescription;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -27,15 +29,24 @@ import java.util.stream.Stream;
  */
 @Component
 public class ListDirectoryTool
-        implements BiFunction<ListDirectoryTool.ListDirectoryParams, ToolContext, String>, BuiltinToolProvider {
+        implements BiFunction<ListDirectoryTool.ListDirectoryParams, ToolContext, String>{
 
     private final String rootDirectory;
     private final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(getClass());
 
-    public static final String DESCRIPTION = "Lists files and directories in the specified path. " +
-            "Supports recursive listing and filtering. " +
-            "Shows file sizes, modification times, and types. " +
-            "Use absolute paths within the workspace directory.";
+    public static final String DESCRIPTION = """
+            Lists files and directories in the specified path.
+            Supports recursive listing and filtering.
+            Shows file sizes, modification times, and types.
+
+            IMPORTANT: Parameters must be a JSON object with the following fields:
+            - file_path (required): The absolute path of the directory to list, must be within workspace directory
+            - recursive (optional): Set to true to list subdirectories recursively, default false
+            - max_depth (optional): Maximum depth for recursive listing (1-10), default 3
+
+            Example call format:
+            {"file_path": "/workspace/project/src", "recursive": true, "max_depth": 5}
+            """;
 
     public ListDirectoryTool() {
         this.rootDirectory = Paths.get(System.getProperty("user.dir"), "workspace").toString();
@@ -260,34 +271,34 @@ public class ListDirectoryTool
 
     /**
      * 列表目录参数
+     * <p>
+     * 注意：参数必须是一个 JSON 对象。
+     * 示例: {"file_path": "/workspace/project", "recursive": true, "max_depth": 3}
+     * </p>
      */
     public static class ListDirectoryParams {
+
+        /**
+         * 目录绝对路径
+         */
+        @NotBlank(message = "file_path is required")
         @JsonProperty("file_path")
+        @JsonPropertyDescription("The absolute path of the directory to list. Must be within the workspace directory. Example: /workspace/project/src")
         public String filePath;
+
+        /**
+         * 是否递归列出子目录
+         */
+        @JsonProperty("recursive")
+        @JsonPropertyDescription("Set to true to list subdirectories recursively. Default is false.")
         public Boolean recursive;
+
+        /**
+         * 递归最大深度
+         */
         @JsonProperty("max_depth")
+        @JsonPropertyDescription("Maximum depth for recursive listing (1-10). Default is 3. Only used when recursive is true.")
         public Integer maxDepth;
     }
 
-    // ==================== BuiltinToolProvider 接口实现 ====================
-
-    @Override
-    public String getToolName() {
-        return "list_directory";
-    }
-
-    @Override
-    public String getDisplayName() {
-        return "列出目录";
-    }
-
-    @Override
-    public String getDescription() {
-        return DESCRIPTION;
-    }
-
-    @Override
-    public ToolCallback createToolCallback() {
-        return createListDirectoryToolCallback(DESCRIPTION);
-    }
 }

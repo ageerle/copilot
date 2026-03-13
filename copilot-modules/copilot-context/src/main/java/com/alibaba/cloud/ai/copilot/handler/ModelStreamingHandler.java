@@ -1,49 +1,49 @@
 package com.alibaba.cloud.ai.copilot.handler;
 
-import com.alibaba.cloud.ai.copilot.core.utils.StringUtils;
 import com.alibaba.cloud.ai.copilot.service.SseEventService;
 import com.alibaba.cloud.ai.graph.streaming.OutputType;
 import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import lombok.RequiredArgsConstructor;
+import io.micrometer.common.util.StringUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
- * 模型流式输出处理器
+ * 模型推理流式输出处理器
  * 处理 AGENT_MODEL_STREAMING 类型的输出
  */
 @Slf4j
-@Component
-@RequiredArgsConstructor
-public class ModelStreamingHandler implements OutputTypeHandler {
+public class ModelStreamingHandler implements OutputHandler {
 
     private final SseEventService sseEventService;
 
-    private StringBuilder stringBuilder = new StringBuilder();
-
-    @Override
-    public OutputType getOutputType() {
-        return OutputType.AGENT_MODEL_STREAMING;
+    public ModelStreamingHandler(SseEventService sseEventService) {
+        this.sseEventService = sseEventService;
     }
-
-    boolean isFastSend = true;
 
     @Override
     public void handle(StreamingOutput output, SseEmitter emitter) {
+        if (output.getOutputType() != OutputType.AGENT_MODEL_STREAMING) {
+            return;
+        }
+
         try {
-            String reasoningContent = output.message().getMetadata().get("reasoningContent").toString();
+            // 获取思考内容（如果有）
+            Object reasoningObj = output.message().getMetadata().get("reasoningContent");
+            String reasoningContent = reasoningObj != null ? reasoningObj.toString() : "";
 
             if (StringUtils.isNotEmpty(reasoningContent)) {
-                sseEventService.sendThinkingContent(emitter, reasoningContent);
+                // 思考内容暂不推送，仅记录日志
+                log.info("思考内容: {}", reasoningContent);
             } else {
+                // 推送模型生成的内容
                 String content = output.message().getText();
                 if (StringUtils.isNotEmpty(content)) {
+                    log.info("模型回复内容: {}", content);
                     sseEventService.sendChatContent(emitter, content);
                 }
             }
         } catch (Exception e) {
-            log.error("发送模型流式内容失败", e);
+            log.error("处理模型流式输出失败", e);
         }
     }
 }
