@@ -35,166 +35,306 @@ function normalizeFilePath(filePath: string): string {
 // ==================== 伪流式输出管理器 ====================
 
 /**
- * 文件内容缓冲区
- * 用于存储正在流式输出的文件内容
+ * 文件流式输出状态
  */
-interface FileBuffer {
+interface FileStreamingState {
   filePath: string;
-  content: string;
-  displayedLength: number;  // 已显示的字符数
-  isComplete: boolean;      // 是否接收完成
+  contentPool: string;           // 内容池（只追加，不删除）
+  renderedIndex: number;         // 渲染指针（只前进）
+  isComplete: boolean;           // 是否收到 end 事件
+  isWaitingForBackend: boolean;  // 是否正在等待后端推送
+  animationId: number | null;    // requestAnimationFrame ID
+  lastRenderedContent: string;   // 上次渲染的内容（用于去重）
 }
 
 /**
- * 伪流式输出管理器
- * 实现文件内容的逐步显示效果
+ * 渲染状态变更回调
+ */
+type StreamingStatusCallback = (filePath: string, status: 'streaming' | 'waiting' | 'complete') => void;
+
+/**
+ * 流式文件管理器
+ *
+ * 设计原则：
+ * 1. 内容池只追加，不删除
+ * 2. 渲染指针只前进，不回退
+ * 3. 渲染循环一直运行，直到完成且渲染完毕
+ * 4. 没内容时"空转"等待新内容
+ * 5. 完成后从后端读取真实文件校准
  */
 class StreamingFileManager {
-  private buffers: Map<string, FileBuffer> = new Map();
-  private displayTimers: Map<string, NodeJS.Timeout> = new Map();
+  private states: Map<string, FileStreamingState> = new Map();
   private refreshTimer: NodeJS.Timeout | null = null;
-  private readonly displaySpeed = 10;  // 每次显示的字符数
-  private readonly displayInterval = 60;  // 显示间隔(ms)
-  private readonly refreshDelay = 1000;  // 刷新文件列表的防抖延迟(ms)
+  private readonly displaySpeed = 15;        // 每帧显示的字符数
+  private readonly minRenderInterval = 16;   // 最小渲染间隔(ms)，约60fps
+  private readonly refreshDelay = 1000;      // 刷新文件列表的防抖延迟(ms)
+  private statusCallback: StreamingStatusCallback | null = null;
+  private lastRenderTime: Map<string, number> = new Map();
+
+  /**
+   * 设置状态变更回调
+   */
+  setStatusCallback(callback: StreamingStatusCallback) {
+    this.statusCallback = callback;
+  }
 
   /**
    * 添加/追加文件内容
+   * 只追加到内容池，不做其他操作
    */
   async addContent(filePath: string, content: string) {
-    let buffer = this.buffers.get(filePath);
+    let state = this.states.get(filePath);
 
-    if (!buffer) {
-      // 新文件 - 先创建文件再初始化流式输出
-      buffer = {
+    if (!state) {
+      // 新文件 - 先创建文件
+      state = {
         filePath,
-        content: '',
-        displayedLength: 0,
-        isComplete: false
+        contentPool: '',
+        renderedIndex: 0,
+        isComplete: false,
+        isWaitingForBackend: false,
+        animationId: null,
+        lastRenderedContent: '',
       };
-      this.buffers.set(filePath, buffer);
+      this.states.set(filePath, state);
 
-      // 先创建文件，等待完成后再选中并打开
+      // 创建空文件并打开
       try {
         await createFileWithContent(filePath, '', true);
         selectAndOpenFile(filePath);
         console.log('[StreamingFileManager] 创建并打开文件:', filePath);
       } catch (err) {
         console.error('[StreamingFileManager] 创建文件失败:', err);
-        return; // 如果创建失败，不继续处理
+        return;
       }
     }
 
-    // 追加内容
-    buffer.content += content;
+    // 追加内容到内容池
+    state.contentPool += content;
+    console.log('[StreamingFileManager] 追加内容:', filePath, '当前池长度:', state.contentPool.length);
 
-    // 启动流式显示
-    this.startStreaming(filePath);
+    // 如果之前在等待状态，取消等待
+    if (state.isWaitingForBackend) {
+      state.isWaitingForBackend = false;
+      this.notifyStatus(filePath, 'streaming');
+    }
 
-    // 重置刷新定时器
+    // 确保渲染循环在运行
+    this.ensureRenderLoop(filePath);
+
+    // 调度文件列表刷新
     this.scheduleRefresh();
   }
 
   /**
    * 标记文件接收完成
    */
-  completeFile(filePath: string) {
-    const buffer = this.buffers.get(filePath);
-    if (buffer) {
-      buffer.isComplete = true;
+  async completeFile(filePath: string) {
+    const state = this.states.get(filePath);
+    if (!state) return;
+
+    state.isComplete = true;
+    console.log('[StreamingFileManager] 文件接收完成:', filePath);
+
+    // 如果渲染已完成，立即校准
+    if (state.renderedIndex >= state.contentPool.length) {
+      await this.calibrateWithBackendFile(filePath);
     }
+    // 否则等待渲染循环完成后再校准
   }
 
   /**
-   * 启动流式显示
+   * 确保渲染循环在运行
+   * 如果已经有循环在运行，不做任何事
    */
-  private startStreaming(filePath: string) {
-    // 清除已有定时器
-    const existingTimer = this.displayTimers.get(filePath);
-    if (existingTimer) {
-      clearInterval(existingTimer);
-    }
+  private ensureRenderLoop(filePath: string) {
+    const state = this.states.get(filePath);
+    if (!state || state.animationId !== null) return;
 
-    // 启动新的显示定时器
-    const timer = setInterval(() => {
-      this.displayNextChunk(filePath);
-    }, this.displayInterval);
-
-    this.displayTimers.set(filePath, timer);
+    this.startRenderLoop(filePath);
   }
 
   /**
-   * 显示下一块内容
+   * 启动渲染循环
+   * 核心逻辑：一直运行，直到完成且渲染完毕
    */
-  private displayNextChunk(filePath: string) {
-    const buffer = this.buffers.get(filePath);
-    if (!buffer) return;
+  private startRenderLoop(filePath: string) {
+    const state = this.states.get(filePath);
+    if (!state) return;
 
-    // 检查是否已显示完毕
-    if (buffer.displayedLength >= buffer.content.length) {
-      // 内容已全部显示，检查是否完成
-      if (buffer.isComplete) {
-        const timer = this.displayTimers.get(filePath);
-        if (timer) {
-          clearInterval(timer);
-          this.displayTimers.delete(filePath);
+    const render = (timestamp: number) => {
+      const currentState = this.states.get(filePath);
+      if (!currentState) return;
+
+      // 检查最小渲染间隔
+      const lastRender = this.lastRenderTime.get(filePath) || 0;
+      if (timestamp - lastRender < this.minRenderInterval) {
+        currentState.animationId = requestAnimationFrame(render);
+        return;
+      }
+
+      // 尝试渲染下一块
+      const hasRendered = this.renderNextChunk(filePath, timestamp);
+
+      // 检查是否应该停止
+      const shouldStop = currentState.isComplete &&
+                         currentState.renderedIndex >= currentState.contentPool.length;
+
+      if (shouldStop) {
+        // 停止渲染循环
+        currentState.animationId = null;
+        console.log('[StreamingFileManager] 渲染循环停止:', filePath);
+
+        // 校准真实文件内容
+        this.calibrateWithBackendFile(filePath);
+        return;
+      }
+
+      // 检查是否需要进入等待状态
+      if (!hasRendered && !currentState.isComplete &&
+          currentState.renderedIndex >= currentState.contentPool.length) {
+        // 渲染完了但还没收到完成信号，也没新内容
+        if (!currentState.isWaitingForBackend) {
+          currentState.isWaitingForBackend = true;
+          this.notifyStatus(filePath, 'waiting');
+          console.log('[StreamingFileManager] 进入等待状态:', filePath);
         }
       }
-      return;
+
+      // 继续下一帧（可能是空转等待新内容）
+      currentState.animationId = requestAnimationFrame(render);
+    };
+
+    state.animationId = requestAnimationFrame(render);
+    this.notifyStatus(filePath, 'streaming');
+  }
+
+  /**
+   * 渲染下一块内容
+   * @returns 是否实际渲染了内容
+   */
+  private renderNextChunk(filePath: string, timestamp: number): boolean {
+    const state = this.states.get(filePath);
+    if (!state) return false;
+
+    const { contentPool, renderedIndex, lastRenderedContent } = state;
+
+    // 检查是否有内容可渲染
+    if (renderedIndex >= contentPool.length) {
+      return false; // 没有新内容
     }
 
-    // 计算本次显示的内容
-    const nextLength = Math.min(
-      buffer.displayedLength + this.displaySpeed,
-      buffer.content.length
-    );
+    // 计算本次渲染的范围
+    const nextIndex = Math.min(renderedIndex + this.displaySpeed, contentPool.length);
+    const displayContent = contentPool.slice(0, nextIndex);
 
-    const displayContent = buffer.content.substring(0, nextLength);
-    buffer.displayedLength = nextLength;
+    // 检查内容是否真的有变化（避免重复渲染）
+    if (displayContent === lastRenderedContent) {
+      // 内容没变化，只更新指针
+      state.renderedIndex = nextIndex;
+      return false;
+    }
 
-    // 更新 fileStore
+    // 更新编辑器
     useFileStore.getState().updateContent(filePath, displayContent, true, true);
+
+    // 更新指针、时间和上次渲染内容
+    state.renderedIndex = nextIndex;
+    state.lastRenderedContent = displayContent;
+    this.lastRenderTime.set(filePath, timestamp);
+
+    return true;
+  }
+
+  /**
+   * 从后端读取真实文件内容并校准
+   */
+  private async calibrateWithBackendFile(filePath: string) {
+    console.log('[StreamingFileManager] 开始校准文件:', filePath);
+    this.notifyStatus(filePath, 'complete');
+
+    try {
+      // 获取工作空间路径
+      const projectRoot = useFileStore.getState().projectRoot || 'workspace';
+
+      // 调用后端 API 读取真实文件
+      const response = await fetch(
+        `/api/files/workspace/${encodeURIComponent(projectRoot)}/file/${encodeURIComponent(filePath)}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`读取文件失败: ${response.status}`);
+      }
+
+      const result = await response.json();
+
+      if (result.success && result.content !== undefined) {
+        // 用真实内容更新编辑器
+        useFileStore.getState().updateContent(filePath, result.content, true, true);
+        console.log('[StreamingFileManager] 文件校准完成:', filePath, '长度:', result.content.length);
+      }
+    } catch (error) {
+      console.error('[StreamingFileManager] 校准文件失败:', error);
+      // 校准失败，保持当前内容
+    }
+
+    // 清理状态
+    this.states.delete(filePath);
+    this.lastRenderTime.delete(filePath);
+  }
+
+  /**
+   * 通知状态变更
+   */
+  private notifyStatus(filePath: string, status: 'streaming' | 'waiting' | 'complete') {
+    if (this.statusCallback) {
+      this.statusCallback(filePath, status);
+    }
+
+    // 触发自定义事件，供其他组件监听
+    window.dispatchEvent(new CustomEvent('streamingStatus', {
+      detail: { filePath, status }
+    }));
   }
 
   /**
    * 调度文件列表刷新（防抖）
    */
   private scheduleRefresh() {
-    // 清除已有定时器
     if (this.refreshTimer) {
       clearTimeout(this.refreshTimer);
     }
 
-    // 设置新定时器
     this.refreshTimer = setTimeout(() => {
-      this.refreshFileList();
+      window.dispatchEvent(new CustomEvent('refreshFileList'));
     }, this.refreshDelay);
   }
 
   /**
-   * 刷新文件列表
+   * 获取文件当前状态
    */
-  private refreshFileList() {
-    // 触发文件列表刷新事件
-    window.dispatchEvent(new CustomEvent('refreshFileList'));
-    console.log('[StreamingFileManager] 文件列表已刷新');
+  getState(filePath: string): FileStreamingState | undefined {
+    return this.states.get(filePath);
   }
 
   /**
    * 清理所有资源
    */
   cleanup() {
-    // 清除所有显示定时器
-    this.displayTimers.forEach(timer => clearInterval(timer));
-    this.displayTimers.clear();
+    // 取消所有动画帧
+    this.states.forEach((state) => {
+      if (state.animationId !== null) {
+        cancelAnimationFrame(state.animationId);
+      }
+    });
 
-    // 清除刷新定时器
+    this.states.clear();
+    this.lastRenderTime.clear();
+
     if (this.refreshTimer) {
       clearTimeout(this.refreshTimer);
       this.refreshTimer = null;
     }
-
-    // 清空缓冲区
-    this.buffers.clear();
   }
 }
 

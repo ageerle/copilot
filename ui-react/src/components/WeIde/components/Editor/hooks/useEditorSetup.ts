@@ -122,14 +122,20 @@ export const useEditorSetup = ({
       contentRef.current[fileName] = fileContent;
     }
 
+    const contentToUpdate = isDirty?.[fileName] ? contentRef.current[fileName] : fileContent;
+
+    // 检查内容是否真的有变化
+    if (view.state.doc.toString() === contentToUpdate) {
+      return;
+    }
+
     view.dispatch({
       changes: {
         from: 0,
         to: view.state.doc.length,
-        insert: isDirty?.[fileName] ?  contentRef.current[fileName] : fileContent,
+        insert: contentToUpdate,
       },
     });
-    
 
     prevContentRef.current = fileContent;
   }, [fileContent, isDirty]);
