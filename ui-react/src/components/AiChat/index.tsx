@@ -14,14 +14,16 @@ const Independent: React.FC = () => {
       }}
     >
       <div
-        className={`bg-[rgba(255,255,255)] dark:bg-[#18181a] min-w-[400px] rounded-lg p-4 ml-1.5 mt-1.5 mb-1.5 ${
+        className={`bg-white dark:bg-[#18181a] min-w-[420px] rounded-xl p-0 shadow-sm border border-gray-200 dark:border-[#2a2b31] ${
           initOpen ? 'flex items-center justify-center' : ''
         }`}
         style={{
-          width: `${mode === ChatMode.Builder && !initOpen ? "300px" : "100%"}`,
+          width: `${mode === ChatMode.Builder && !initOpen ? "380px" : "100%"}`,
         }}
       >
-        <BaseChat />
+        <div className="h-full w-full rounded-xl overflow-hidden">
+          <BaseChat />
+        </div>
       </div>
     </ConfigProvider>
   );

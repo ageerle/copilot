@@ -1,4 +1,4 @@
-import React, {memo, useCallback, useMemo, useState} from "react";
+import React, {memo, useCallback, useEffect, useMemo, useState} from "react";
 import ReactMarkdown from "react-markdown";
 import {ArtifactView} from "../ArtifactView";
 import {ImageGrid} from "../ImageGrid";
@@ -14,6 +14,7 @@ import "highlight.js/styles/github-dark.css"; // 暗色主题
 import {message} from "antd";
 import {useTranslation} from 'react-i18next';
 import { safeJsonParse } from '@/utils/safeJsonParse';
+import useToolInvocationStore from '@/stores/toolInvocationSlice';
 
 const codeStyles = `
   .hljs-attr {
@@ -442,18 +443,46 @@ const ToolInvocationCard = ({
   }[]) => void;
 }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [hasInvoked, setHasInvoked] = useState(false);  // 添加状态跟踪是否已调用
   const { t } = useTranslation();
-  const toolName = toolInvocation.toolName.split('.');
-  if (toolName.length > 2){
-    throw new Error(`Tool name: ${toolInvocation.toolName} must be 'string.string'`);
-  }
+  const toolParts = toolInvocation.toolName.split('.').filter(Boolean);
+  const displayToolName = toolParts[toolParts.length - 1] || toolInvocation.toolName;
+  const displayServerName = toolParts.length > 1 ? toolParts.slice(0, -1).join('.') : 'mcp';
+  const { upsertFromInvocation, markRetrying, markError, getById } = useToolInvocationStore();
+  const runtimeState = getById(toolInvocation.toolCallId);
+
+  useEffect(() => {
+    upsertFromInvocation({
+      toolCallId: toolInvocation.toolCallId,
+      toolName: toolInvocation.toolName,
+      state: toolInvocation.state,
+      args: toolInvocation.args,
+      result: (toolInvocation as any).result
+    });
+  }, [
+    upsertFromInvocation,
+    toolInvocation.toolCallId,
+    toolInvocation.toolName,
+    toolInvocation.state,
+    toolInvocation.args,
+    (toolInvocation as any).result
+  ]);
+
+  const statusTextMap = {
+    queued: t('chat.status.queued', 'Queued'),
+    running: t('chat.status.running', 'Running'),
+    success: t('chat.status.success', 'Success'),
+    error: t('chat.status.error', 'Error')
+  } as const;
+
+  const resolvedStatus = runtimeState?.status || 'queued';
   const handleRetry = async () => {
     try {
       setIsLoading(true);
+      markRetrying(toolInvocation.toolCallId);
       // MCP tool calls are not available in Web mode
       message.error(t('settings.mcp.notAvailableInWebMode') || 'MCP tools are not available in Web mode');
     } catch (error) {
+      markError(toolInvocation.toolCallId, String(error));
       message.error(t('settings.mcp.addError'));
     } finally {
       setIsLoading(false);
@@ -464,7 +493,7 @@ const ToolInvocationCard = ({
     <div className="flex flex-col gap-2 mb-4">
       {/* MCP 工具使用提示 */}
       <div className="text-xs text-gray-500 dark:text-gray-400">
-        {toolName?.[1]} {t('chat.buttons.mcp_tools')}: {toolName?.[2]}
+        {displayServerName} {t('chat.buttons.mcp_tools')}: {displayToolName}
       </div>
 
       <div className="relative rounded-lg border dark:border-gray-700 bg-gray-50 dark:bg-[#1e1e1e] overflow-hidden">
@@ -473,17 +502,39 @@ const ToolInvocationCard = ({
             <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
           </svg>
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            {toolName?.[2] || t('settings.mcp.title')}
+            {displayToolName || t('settings.mcp.title')}
+          </span>
+          <span className={classNames(
+            'ml-auto text-xs px-2 py-0.5 rounded-full',
+            resolvedStatus === 'success' && 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
+            resolvedStatus === 'error' && 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+            resolvedStatus === 'running' && 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+            resolvedStatus === 'queued' && 'bg-gray-100 text-gray-700 dark:bg-gray-700/30 dark:text-gray-300'
+          )}>
+            {statusTextMap[resolvedStatus]}
           </span>
         </div>
         <div className="p-3">
           <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 font-mono">
             {JSON.stringify(toolInvocation?.args, null, 2)}
           </pre>
+          {runtimeState?.output !== undefined && (
+            <div className="mt-3 pt-3 border-t dark:border-gray-700">
+              <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Output</div>
+              <pre className="whitespace-pre-wrap text-sm text-gray-700 dark:text-gray-300 font-mono">
+                {JSON.stringify(runtimeState.output, null, 2)}
+              </pre>
+            </div>
+          )}
+          {runtimeState?.error && (
+            <div className="mt-3 pt-3 border-t dark:border-gray-700 text-sm text-red-600 dark:text-red-400">
+              {runtimeState.error}
+            </div>
+          )}
         </div>
 
-        {/* 右下角按钮 - 只在未调用过时显示 */}
-        {!hasInvoked && (
+        {/* 右下角按钮 - 错误或排队时允许重试 */}
+        {(resolvedStatus === 'error' || resolvedStatus === 'queued') && (
           <div className="absolute bottom-3 right-3">
             <button
               onClick={handleRetry}
