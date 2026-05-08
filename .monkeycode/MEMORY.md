@@ -31,27 +31,9 @@ Agent 在任务执行过程中发现的条目应遵循以下格式：
 
 ## 条目
 
-[前端改造任务边界]
+[一次性整体改造偏好]
 - Date: 2026-05-08
-- Context: 用户在当前会话首次任务说明时提出
+- Context: 用户确认将 Spring AI Alibaba 能力替换为 HarnessAgent 的执行方式
 - Instructions:
-  - 由我负责修改当前项目的前端部分
-  - 改造时参考 https://github.com/chaitin/MonkeyCode/ 项目的前端实现
-  - 优先盘点并移植可用的 RC 组件
-
-[前端布局改造范围]
-- Date: 2026-05-08
-- Context: 用户在当前会话明确布局改造要求时提出
-- Instructions:
-  - 仅参考 MonkeyCode 前端布局进行调整
-  - 左侧区域保持不变，保留用户会话记录等现有结构
-  - 其余区域按参考项目布局调整
-  - 先做一版布局改造，不进行大规模样式改动
-
-[迁移基线要求]
-- Date: 2026-05-08
-- Context: 用户在确认迁移范围时提出
-- Instructions:
-  - 迁移基线必须来自 https://github.com/chaitin/MonkeyCode/ 的 frontend
-  - 除该仓库外不参考任何其他项目
-  - 在确认基线后，再在该基线上开始 Vue 化
+  - 用户偏好一次性整体替换，不要分布式拆批修改
+  - 在一次性改造前必须先做好任务规划

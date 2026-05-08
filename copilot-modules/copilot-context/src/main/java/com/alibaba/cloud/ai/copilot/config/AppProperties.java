@@ -22,6 +22,7 @@ public class AppProperties {
     private Tools tools = new Tools();
     private Conversation conversation = new Conversation();
     private Memory memory = new Memory();
+    private Harness harness = new Harness();
 
 
     /**
@@ -309,5 +310,112 @@ public class AppProperties {
 
     public void setMemory(Memory memory) {
         this.memory = memory;
+    }
+
+    public Harness getHarness() {
+        return harness;
+    }
+
+    public void setHarness(Harness harness) {
+        this.harness = harness;
+    }
+
+    public static class Harness {
+        private Filesystem filesystem = new Filesystem();
+
+        public Filesystem getFilesystem() {
+            return filesystem;
+        }
+
+        public void setFilesystem(Filesystem filesystem) {
+            this.filesystem = filesystem;
+        }
+
+        public static class Filesystem {
+            private String mode = "local";
+            private int executeTimeoutSeconds = 30;
+            private int maxOutputBytes = 100000;
+            private String anonymousUserId = "_default";
+            private boolean sandboxRequireDistributed = false;
+            private Docker docker = new Docker();
+
+            public String getMode() {
+                return mode;
+            }
+
+            public void setMode(String mode) {
+                this.mode = mode;
+            }
+
+            public int getExecuteTimeoutSeconds() {
+                return executeTimeoutSeconds;
+            }
+
+            public void setExecuteTimeoutSeconds(int executeTimeoutSeconds) {
+                this.executeTimeoutSeconds = executeTimeoutSeconds;
+            }
+
+            public int getMaxOutputBytes() {
+                return maxOutputBytes;
+            }
+
+            public void setMaxOutputBytes(int maxOutputBytes) {
+                this.maxOutputBytes = maxOutputBytes;
+            }
+
+            public String getAnonymousUserId() {
+                return anonymousUserId;
+            }
+
+            public void setAnonymousUserId(String anonymousUserId) {
+                this.anonymousUserId = anonymousUserId;
+            }
+
+            public boolean isSandboxRequireDistributed() {
+                return sandboxRequireDistributed;
+            }
+
+            public void setSandboxRequireDistributed(boolean sandboxRequireDistributed) {
+                this.sandboxRequireDistributed = sandboxRequireDistributed;
+            }
+
+            public Docker getDocker() {
+                return docker;
+            }
+
+            public void setDocker(Docker docker) {
+                this.docker = docker;
+            }
+
+            public static class Docker {
+                private String image = "python:3.12-slim";
+                private String network;
+                private String workspaceRoot = "/workspace";
+
+                public String getImage() {
+                    return image;
+                }
+
+                public void setImage(String image) {
+                    this.image = image;
+                }
+
+                public String getNetwork() {
+                    return network;
+                }
+
+                public void setNetwork(String network) {
+                    this.network = network;
+                }
+
+                public String getWorkspaceRoot() {
+                    return workspaceRoot;
+                }
+
+                public void setWorkspaceRoot(String workspaceRoot) {
+                    this.workspaceRoot = workspaceRoot;
+                }
+            }
+        }
     }
 }

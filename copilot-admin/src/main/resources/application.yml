@@ -301,6 +301,27 @@ app:
       # 压缩后保留最近多少条消息（默认：20）
       messages-to-keep: 20
 
+  # Harness 配置
+  harness:
+    filesystem:
+      # local | remote | sandbox
+      mode: local
+      # local 模式下的命令执行超时（秒）
+      execute-timeout-seconds: 30
+      # local 模式下的最大输出字节数
+      max-output-bytes: 100000
+      # remote 模式匿名用户ID
+      anonymous-user-id: _default
+      # sandbox 模式是否要求分布式沙箱
+      sandbox-require-distributed: false
+      docker:
+        # sandbox 模式容器镜像
+        image: python:3.12-slim
+        # sandbox 模式工作目录
+        workspace-root: /workspace
+        # sandbox 模式容器网络（留空表示默认网络）
+        network:
+
   # MCP 配置
   mcp:
     # 客户端配置
@@ -311,7 +332,6 @@ app:
       connection-timeout: 10
       # 最大重试次数
       max-retries: 3
-
 
 
 
