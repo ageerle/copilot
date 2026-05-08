@@ -49,6 +49,7 @@
         <langchain4j.version>1.2.0</langchain4j.version>
         <tmp-langchain4j.version>1.2.0-beta8</tmp-langchain4j.version>
         <milvus.version>2.4.8</milvus.version>
+        <agentscope.version>1.0.13-SNAPSHOT</agentscope.version>
     </properties>
 
 
@@ -175,6 +176,26 @@
                 <groupId>com.alibaba.cloud.ai</groupId>
                 <artifactId>spring-ai-model-chat-memory-repository-jdbc</artifactId>
                 <version>${spring-ai-alibaba.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.agentscope</groupId>
+                <artifactId>agentscope-bom</artifactId>
+                <version>${agentscope.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>io.agentscope</groupId>
+                <artifactId>agentscope-core</artifactId>
+                <version>${agentscope.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.agentscope</groupId>
+                <artifactId>agentscope-harness</artifactId>
+                <version>${agentscope.version}</version>
             </dependency>
 
             <dependency>
