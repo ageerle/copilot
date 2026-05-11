@@ -9,6 +9,8 @@ import {FileItem} from "../types";
 import {createFile, createFolder, deleteFile, renameFile,} from "../utils/fileSystem";
 import FileIcon from "./fileIcon";
 import {cn} from "@/utils/cn";
+import { TopView } from "@/components/TopView";
+import { FilePreviewModal } from "@/components/FilePreviewModal";
 
 interface FileTreeItemProps {
   item: FileItem;
@@ -43,7 +45,20 @@ export function FileTreeItem({
     if (item.type === "folder") {
       onToggle(item.path);
     } else {
+      // 单击选择文件
       onFileSelect(item.path);
+      
+      // 双击预览文件
+      if (e.detail === 2) {
+        TopView.show(
+          <FilePreviewModal 
+            visible={true} 
+            filePath={item.path} 
+            onClose={() => TopView.hide('file-preview-' + item.path)} 
+          />,
+          'file-preview-' + item.path
+        );
+      }
     }
   };
 
