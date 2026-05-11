@@ -287,16 +287,10 @@ class StreamingFileManager {
    * 通知状态变更
    */
   private notifyStatus(filePath: string, status: 'streaming' | 'waiting' | 'complete') {
-    // 移除 streamingStatus 事件派发
+    // 移除 streamingStatus 事件派发以避免UI显示
     // window.dispatchEvent(new CustomEvent('streamingStatus', {
     //   detail: { filePath, status }
     // }));
-  }
-
-    // 触发自定义事件，供其他组件监听
-    window.dispatchEvent(new CustomEvent('streamingStatus', {
-      detail: { filePath, status }
-    }));
   }
 
   /**
