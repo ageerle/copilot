@@ -2,7 +2,6 @@ import {useFileStore} from "../../stores/fileStore";
 import {useEditorStore} from "../../stores/editorStore";
 import {useEditorSetup} from "./hooks/useEditorSetup";
 import {useEditorScroll} from "./hooks/useEditorScroll";
-import {useStreamingStatus} from "../../hooks/useStreamingStatus";
 import "./styles/diff.css";
 
 interface EditorProps {
@@ -13,7 +12,6 @@ interface EditorProps {
 export const Editor = ({ fileName, initialLine }: EditorProps) => {
   const { getContent } = useFileStore();
   const { setDirty, setCurrentFile } = useEditorStore();
-  const streamingStatus = useStreamingStatus(fileName);
 
   const rawContent = getContent(fileName);
 
@@ -35,20 +33,6 @@ export const Editor = ({ fileName, initialLine }: EditorProps) => {
 
   return (
     <div className="relative h-full w-full">
-      {/* 流式输出状态提示 */}
-      {streamingStatus === 'waiting' && (
-        <div className="absolute top-2 right-2 z-10 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-xs rounded-md shadow-sm flex items-center gap-2">
-          <span className="animate-pulse">●</span>
-          等待后端推送...
-        </div>
-      )}
-      {streamingStatus === 'streaming' && (
-        <div className="absolute top-2 right-2 z-10 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded-md shadow-sm flex items-center gap-2">
-          <span className="animate-pulse">●</span>
-          正在生成代码...
-        </div>
-      )}
-
       <div
         ref={editorRef}
         className={`

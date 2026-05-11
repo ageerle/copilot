@@ -5,7 +5,6 @@ import {GlobalLimitModal} from "./components/UserModal";
 import Header from "./components/Header";
 import AiChat from "./components/AiChat";
 import Login from "./components/Login";
-import EditorPreviewTabs from "./components/EditorPreviewTabs";
 import "./utils/i18";
 import classNames from "classnames";
 import {ChatMode} from "./types/chat";
