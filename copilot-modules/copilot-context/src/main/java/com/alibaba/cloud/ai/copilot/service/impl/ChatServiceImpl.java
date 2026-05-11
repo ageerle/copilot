@@ -6,9 +6,11 @@ import com.alibaba.cloud.ai.copilot.domain.dto.CreateConversationRequest;
 import com.alibaba.cloud.ai.copilot.domain.entity.ChatMessageEntity;
 import com.alibaba.cloud.ai.copilot.domain.entity.McpToolInfo;
 import com.alibaba.cloud.ai.copilot.handler.*;
-import com.alibaba.cloud.ai.copilot.hook.ConversationHistoryHook;
-import com.alibaba.cloud.ai.copilot.hook.ConversationSaveHook;
-import com.alibaba.cloud.ai.copilot.hook.LongTermMemoryHook;
+import com.alibaba.cloud.ai.copilot.hook.agentscope.AgentScopeHookContext;
+import com.alibaba.cloud.ai.copilot.hook.agentscope.AgentScopeHookContextHolder;
+import com.alibaba.cloud.ai.copilot.hook.agentscope.AgentScopeHookInvoker;
+import com.alibaba.cloud.ai.copilot.hook.agentscope.AgentScopeHookRegistry;
+import com.alibaba.cloud.ai.copilot.hook.agentscope.AgentScopeMessageUtils;
 import com.alibaba.cloud.ai.copilot.interceptor.DynamicSystemPromptInterceptor;
 import com.alibaba.cloud.ai.copilot.knowledge.service.KnowledgeAvailabilityChecker;
 import com.alibaba.cloud.ai.copilot.store.DatabaseStore;
@@ -29,12 +31,9 @@ import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import com.alibaba.cloud.ai.graph.agent.extension.tools.filesystem.EditFileTool;
 import com.alibaba.cloud.ai.graph.agent.extension.tools.filesystem.GrepTool;
 import com.alibaba.cloud.ai.graph.agent.extension.tools.filesystem.ReadFileTool;
-import com.alibaba.cloud.ai.graph.agent.hook.Hook;
-import com.alibaba.cloud.ai.graph.agent.hook.summarization.SummarizationHook;
 import com.alibaba.cloud.ai.graph.agent.interceptor.ModelInterceptor;
 import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
 import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
-import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -62,18 +61,16 @@ public class ChatServiceImpl implements ChatService {
 
     private final AppProperties appProperties;
     private final DynamicModelService dynamicModelService;
-   private final OutputHandlerRegistry outputHandlerRegistry;
     private final SseEventService sseEventService;
     private final ConversationService conversationService;
     private final ChatMessageMapper chatMessageMapper;
-    private final ConversationHistoryHook conversationHistoryHook;
-    private final ConversationSaveHook conversationSaveHook;
+    private final AgentScopeHookRegistry agentScopeHookRegistry;
+    private final AgentScopeHookInvoker agentScopeHookInvoker;
     private final DynamicSystemPromptInterceptor dynamicSystemPromptInterceptor;
     private final McpClientManager mcpClientManager;
     private final BuiltinToolRegistry builtinToolRegistry;
     private final McpToolInfoMapper mcpToolInfoMapper;
     private final DatabaseStore databaseStore;
-    private final LongTermMemoryHook longTermMemoryHook;
     private final KnowledgeAvailabilityChecker knowledgeAvailabilityChecker;
 
     @Override
@@ -98,27 +95,7 @@ public class ChatServiceImpl implements ChatService {
             // 2. 获取 ChatModel
             ChatModel chatModel = dynamicModelService.getChatModelWithConfigId(request.getModelConfigId());
 
-            // 4. 构建 Hooks
-            List<Hook> hooks = new ArrayList<>();
-
-            // 4.1 会话历史加载 Hook（从数据库加载历史消息）改进：只在首次请求时加载历史，后续让 ReactAgent 自己管理消息流
-            hooks.add(conversationHistoryHook);
-
-            // 4.2 消息压缩 Hook（当消息过多时自动压缩）
-            hooks.add(SummarizationHook.builder()
-                .model(chatModel)
-                .maxTokensBeforeSummary(appProperties.getConversation().getSummarization().getMaxTokensBeforeSummary())
-                .messagesToKeep(appProperties.getConversation().getSummarization().getMessagesToKeep())
-                .build());
-
-            // 4.3 会话保存 Hook（保存 Assistant 响应到数据库）
-            // 改进：只保存工具调用完成后的最终文本响应
-            hooks.add(conversationSaveHook);
-
-            // 4.4 长期记忆 Hook（加载用户画像和学习偏好）
-            if (appProperties.getMemory().isEnabled()) {
-                hooks.add(longTermMemoryHook);
-            }
+            var agentScopeHooks = agentScopeHookRegistry.runtimeHooks(appProperties.getMemory().isEnabled());
 
             // 5. 构建 Interceptors
             List<ModelInterceptor> interceptors = new ArrayList<>();
@@ -151,7 +128,6 @@ public class ChatServiceImpl implements ChatService {
                     .name("copilot_agent")
                     .model(chatModel)
                     .systemPrompt(prompt)
-                    .hooks(hooks.toArray(new Hook[0]))
                     .interceptors(interceptors.toArray(new ModelInterceptor[0]))
                     .saver(new MemorySaver())
                     .tools(ListDirectoryTool.createListDirectoryToolCallback(ListDirectoryTool.DESCRIPTION),
@@ -165,12 +141,11 @@ public class ChatServiceImpl implements ChatService {
 
             // 7. 设置会话ID到上下文（供 Hook 和 Interceptor 使用）
             Long userIdLong = LoginHelper.getUserId();
-            RunnableConfig.Builder configBuilder = RunnableConfig.builder();
-            // 7. 设置会话ID和用户ID到上下文（供 Hook 和 Interceptor 使用）
+            // 7. 设置会话ID和用户ID到上下文（供 Interceptor 使用）
             RunnableConfig config = RunnableConfig.builder()
                 .addMetadata("conversationId", conversationId)
                 .addMetadata("user_id", String.valueOf(userIdLong))
-                // 供 LongTermMemoryHook 兜底 LLM 结构化抽取时优先使用当前会话同一个模型配置
+                // 供 AgentScope 长期记忆 hook 兜底 LLM 结构化抽取时使用当前会话模型配置
                 .addMetadata("model_config_id", request.getModelConfigId()).build();
 
             // 设置偏好相关开关
@@ -181,13 +156,16 @@ public class ChatServiceImpl implements ChatService {
                 ? request.getEnablePreferenceLearning()
                 : true; // 默认启用
 
-            configBuilder.addMetadata("enable_preferences", String.valueOf(enablePreferences));
-            configBuilder.addMetadata("enable_preference_learning", String.valueOf(enablePreferenceLearning));
-
-            // 设置长期记忆存储（如果启用）
-            if (appProperties.getMemory().isEnabled()) {
-                configBuilder.store(databaseStore);
-            }
+            AgentScopeHookContextHolder.set(new AgentScopeHookContext(
+                conversationId,
+                String.valueOf(userIdLong),
+                request.getMessage().getContent(),
+                request.getModelConfigId(),
+                enablePreferences,
+                enablePreferenceLearning,
+                appProperties.getMemory().isEnabled() ? databaseStore : null
+            ));
+            log.debug("AgentScope hooks prepared: count={}", agentScopeHooks.size());
 
             // 8. 保存用户消息到数据库
             final String finalConversationId = conversationId;
@@ -209,7 +187,9 @@ public class ChatServiceImpl implements ChatService {
             sseEventService.sendConversationId(emitter, finalConversationId);
 
             // 11. 执行 Agent
-            Flux<NodeOutput> stream = agent.stream(userMessageContent, config);
+            String agentInput = AgentScopeMessageUtils.plainTextTranscript(
+                    agentScopeHookInvoker.beforeReasoning(agentScopeHooks, chatModel.getClass().getSimpleName(), userMessageContent));
+            Flux<NodeOutput> stream = agent.stream(agentInput, config);
             // 创建 Handler Registry
             OutputHandlerRegistry handlerRegistry = createHandlerRegistry();
             stream.subscribe(
@@ -225,20 +205,24 @@ public class ChatServiceImpl implements ChatService {
                         log.error("Agent execution error", error);
                     }
                     sseEventService.sendComplete(emitter);
+                    AgentScopeHookContextHolder.clear();
                 },
                 () -> {
                     // 流完成后，更新会话标题（基于首条用户消息）
                     updateConversationTitleIfNeeded(finalConversationId, userMessageContent, userIdLong);
                     sseEventService.sendComplete(emitter);
+                    AgentScopeHookContextHolder.clear();
                 }
             );
 
         } catch (GraphRunnerException e) {
             log.error("Error in builder mode", e);
             sseEventService.sendComplete(emitter);
+            AgentScopeHookContextHolder.clear();
         } catch (Exception e) {
             log.error("Unexpected error in builder mode", e);
             sseEventService.sendComplete(emitter);
+            AgentScopeHookContextHolder.clear();
         }
     }
 
@@ -250,8 +234,7 @@ public class ChatServiceImpl implements ChatService {
         return new OutputHandlerRegistry(
                 new ModelStreamingHandler(sseEventService),
                 new ModelFinishedHandler(),
-                new ToolFinishedHandler(sseEventService),
-                new HookFinishedHandler()
+                new ToolFinishedHandler(sseEventService)
         );
     }
 
