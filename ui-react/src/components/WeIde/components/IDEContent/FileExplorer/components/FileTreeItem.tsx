@@ -1,16 +1,13 @@
 import {useState} from "react";
-import {ChevronDown, ChevronRight,} from "lucide-react";
+import {ChevronDown, ChevronRight} from "lucide-react";
 import {FileContextMenu} from "./FileContextMenu";
 import {FolderContextMenu} from "./FolderContextMenu";
 import {InlineEdit} from "./InlineEdit";
 import {CreateDialog} from "./CreateDialog";
-
 import {FileItem} from "../types";
-import {createFile, createFolder, deleteFile, renameFile,} from "../utils/fileSystem";
+import {createFile, createFolder, deleteFile, renameFile} from "../utils/fileSystem";
 import FileIcon from "./fileIcon";
 import {cn} from "@/utils/cn";
-import { TopView } from "@/components/TopView";
-import { useFileStore } from "@/components/WeIde/stores/fileStore";
 
 interface FileTreeItemProps {
   item: FileItem;
@@ -29,14 +26,9 @@ export function FileTreeItem({
   expandedFolders,
   selectedFile,
 }: FileTreeItemProps) {
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{x: number; y: number} | null>(null);
   const [isRenaming, setIsRenaming] = useState(false);
-  const [createDialog, setCreateDialog] = useState<"file" | "folder" | null>(
-    null
-  );
+  const [createDialog, setCreateDialog] = useState<"file" | "folder" | null>(null);
 
   const isSelected = selectedFile === item.path;
 
@@ -44,40 +36,14 @@ export function FileTreeItem({
     e.stopPropagation();
     if (item.type === "folder") {
       onToggle(item.path);
-    } else {
-      // 单击选择文件
-      onFileSelect(item.path);
-      
-      // 双击预览文件
-      if (e.detail === 2) {
-        const { getContent } = useFileStore.getState();
-        const content = getContent(item.path) || '';
-        
-        // 创建简单的预览组件
-        const PreviewComponent = () => (
-          <div className="h-full w-full bg-white dark:bg-gray-900 p-4 overflow-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">预览: {item.path}</h3>
-              <button 
-                onClick={() => TopView.hide('file-preview-' + item.path)}
-                className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-              >
-                关闭
-              </button>
-            </div>
-            <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-50 dark:bg-gray-800 p-4 rounded max-h-[80vh] overflow-auto">
-              {content}
-            </pre>
-          </div>
-        );
-        
-        TopView.show(<PreviewComponent />, 'file-preview-' + item.path);
-      }
+      return;
     }
+
+    onFileSelect(item.path);
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
-    setContextMenu({ x: e.clientX - 410, y: e.clientY - 100 });
+    setContextMenu({x: e.clientX - 410, y: e.clientY - 100});
     e.preventDefault();
     e.stopPropagation();
   };
@@ -111,12 +77,10 @@ export function FileTreeItem({
     <div className="flex flex-col">
       <div
         className={cn(
-          "flex items-center text-[13px] cursor-pointer rounded-sm transition-all duration-200",
-          "h-[24px] px-1.5 my-[1px]",
-          "group relative select-none",
-          isSelected 
-            ? "bg-[#e4e6f1] dark:bg-[#37373d] text-[#333] dark:text-white" 
-            : "hover:bg-[#f0f0f0] dark:hover:bg-[#2d2d2d]/70 text-[#444444] dark:text-gray-300"
+          "group relative my-[1px] flex h-[24px] cursor-pointer select-none items-center rounded-sm px-1.5 text-[13px] transition-all duration-200",
+          isSelected
+            ? "bg-[#e4e6f1] text-[#333] dark:bg-[#37373d] dark:text-white"
+            : "text-[#444444] hover:bg-[#f0f0f0] dark:text-gray-300 dark:hover:bg-[#2d2d2d]/70"
         )}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
@@ -125,17 +89,17 @@ export function FileTreeItem({
         aria-selected={isSelected}
         aria-expanded={item.type === "folder" ? expanded : undefined}
       >
-        <span className="inline-flex items-center min-w-0 flex-1 gap-0.5">
+        <span className="inline-flex min-w-0 flex-1 items-center gap-0.5">
           {item.type === "folder" && (
-            <span className="w-4 h-4 flex items-center justify-center">
+            <span className="flex h-4 w-4 items-center justify-center">
               {expanded ? (
-                <ChevronDown className="w-3.5 h-3.5 text-[#424242] dark:text-gray-400 transition-transform duration-200" />
+                <ChevronDown className="h-3.5 w-3.5 text-[#424242] transition-transform duration-200 dark:text-gray-400" />
               ) : (
-                <ChevronRight className="w-3.5 h-3.5 text-[#424242] dark:text-gray-400 transition-transform duration-200" />
+                <ChevronRight className="h-3.5 w-3.5 text-[#424242] transition-transform duration-200 dark:text-gray-400" />
               )}
             </span>
           )}
-          <span className="w-4.5 h-4.5 flex items-center justify-center">
+          <span className="flex h-4.5 w-4.5 items-center justify-center">
             <FileIcon fileName={item.name} />
           </span>
           {isRenaming ? (
@@ -180,19 +144,12 @@ export function FileTreeItem({
         type={createDialog || "file"}
         isOpen={createDialog !== null}
         path={item.path}
-        onSubmit={
-          createDialog === "file" ? handleCreateFile : handleCreateFolder
-        }
+        onSubmit={createDialog === "file" ? handleCreateFile : handleCreateFolder}
         onClose={() => setCreateDialog(null)}
       />
 
       {expanded && item.type === "folder" && item.children && (
-        <div
-          className={cn(
-            "flex flex-col pl-4 overflow-hidden",
-            "transition-all duration-200"
-          )}
-        >
+        <div className={cn("flex flex-col overflow-hidden pl-4", "transition-all duration-200")}>
           {item.children.map((child) => (
             <FileTreeItem
               key={child.path}
@@ -209,3 +166,4 @@ export function FileTreeItem({
     </div>
   );
 }
+

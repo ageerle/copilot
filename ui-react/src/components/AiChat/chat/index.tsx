@@ -1107,15 +1107,17 @@ export const BaseChat = ({uuid: propUuid}: { uuid?: string }) => {
     const showJsx = useMemo(() => {
         return (
             <div
-                className="flex-1 overflow-y-auto px-3 pt-4 pb-2 message-container [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                className="message-container flex-1 overflow-y-auto px-4 pb-2 pt-4 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                 onScroll={handleScroll}  // 添加滚动事件监听
             >
-                        <Tips
-            append={append}
-            setInput={setInput}
-            handleFileSelect={handleFileSelect}
-          />
-                <div className="max-w-[860px] w-full mx-auto space-y-4">
+                <div className="mx-auto w-full max-w-[960px]">
+                    <Tips
+                        append={append}
+                        setInput={setInput}
+                        handleFileSelect={handleFileSelect}
+                    />
+                </div>
+                <div className="mx-auto w-full max-w-[960px] space-y-3">
 
                     {filterMessages.map((message, index) => (
                         <MessageItem
@@ -1196,23 +1198,10 @@ export const BaseChat = ({uuid: propUuid}: { uuid?: string }) => {
 
     return (
         <div
-            className="flex h-full flex-col bg-[#fafbfc] dark:bg-[#18181a] max-w-full"
+            className="flex h-full max-w-full flex-col bg-transparent"
             onDragOver={handleDragOver}
             onDrop={handleDrop}
         >
-            <div className="h-12 shrink-0 border-b border-gray-200 dark:border-[#2a2b31] bg-white dark:bg-[#18181a] px-4">
-                <div className="h-full max-w-[1120px] mx-auto flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                        <span className="font-medium text-gray-900 dark:text-gray-100">Workspace</span>
-                        <span>/</span>
-                        <span>Chat</span>
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {isLoading ? t('chat.generating', 'Generating...') : t('chat.ready', 'Ready')}
-                    </div>
-                </div>
-            </div>
-
             {showJsx}
 
             {/* 文件系统状态指示器 */}
@@ -1220,8 +1209,8 @@ export const BaseChat = ({uuid: propUuid}: { uuid?: string }) => {
                 <FileSystemStatus />
             </div>
 
-            <div className="px-3 pb-3 pt-2 border-t border-gray-200 dark:border-[#2a2b31] bg-white dark:bg-[#18181a]">
-                <div className="max-w-[860px] mx-auto">
+            <div className="border-t border-gray-200/70 bg-transparent px-4 pb-4 pt-3 dark:border-[#2a2b31]">
+                <div className="mx-auto max-w-[960px]">
                     <ChatInput
                         input={input}
                         setMessages={setMessages}

@@ -1,10 +1,9 @@
 import {ConfigProvider, theme} from "antd";
 import {BaseChat} from "./chat";
-import {ChatMode} from "@/types/chat";
 import useChatModeStore from "@/stores/chatModeSlice";
 
 const Independent: React.FC = () => {
-  const { mode, initOpen } = useChatModeStore();
+  const { initOpen } = useChatModeStore();
 
 
   return (
@@ -14,14 +13,11 @@ const Independent: React.FC = () => {
       }}
     >
       <div
-        className={`bg-white dark:bg-[#18181a] min-w-[420px] rounded-xl p-0 shadow-sm border border-gray-200 dark:border-[#2a2b31] ${
-          initOpen ? 'flex items-center justify-center' : ''
+        className={`h-full w-full min-w-0 p-0 ${
+          initOpen ? "flex items-center justify-center" : ""
         }`}
-        style={{
-          width: `${mode === ChatMode.Builder && !initOpen ? "380px" : "100%"}`,
-        }}
       >
-        <div className="h-full w-full rounded-xl overflow-hidden">
+        <div className="h-full w-full overflow-hidden">
           <BaseChat />
         </div>
       </div>

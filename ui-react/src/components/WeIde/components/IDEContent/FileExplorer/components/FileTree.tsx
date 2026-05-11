@@ -1,4 +1,4 @@
-import {useCallback, useState, useEffect} from "react";
+import {useCallback, useEffect, useState} from "react";
 import {FileTreeItem} from "./FileTreeItem";
 import {CreateFileDialog} from "./CreateFileDialog";
 import {CreateFolderDialog} from "./CreateFolderDialog";
@@ -7,8 +7,7 @@ import {FileTreeProps} from "../types";
 import {cn} from "@/utils/cn";
 import {useFileStore} from "@/components/WeIde/stores/fileStore";
 
-export function FileTree({ items, onFileSelect }: FileTreeProps) {
-  // 默认展开的文件夹
+export function FileTree({items, onFileSelect}: FileTreeProps) {
   const defaultExpanded = {
     src: true,
     features: true,
@@ -23,16 +22,13 @@ export function FileTree({ items, onFileSelect }: FileTreeProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
 
-  // 监听全局 selectedPath 变化
-  const { selectedPath: globalSelectedPath } = useFileStore();
+  const {selectedPath: globalSelectedPath} = useFileStore();
 
   useEffect(() => {
     if (globalSelectedPath && globalSelectedPath !== selectedFile) {
       setSelectedFile(globalSelectedPath);
-      // 当全局选择路径变化时，触发文件选择回调
-      onFileSelect(globalSelectedPath);
     }
-  }, [globalSelectedPath, selectedFile, onFileSelect]);
+  }, [globalSelectedPath, selectedFile]);
 
   const toggleFolder = useCallback((path: string, isExpend?: boolean) => {
     setExpandedFolders((prev) => ({
@@ -68,20 +64,18 @@ export function FileTree({ items, onFileSelect }: FileTreeProps) {
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    // 处理文件拖拽逻辑
   };
 
   return (
     <>
       <div
         className={cn(
-          "flex flex-col h-full overflow-auto",
+          "flex h-full flex-col overflow-auto px-1 py-2",
           "scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent",
-          "px-1 py-2",
           isDragging && "bg-gray-800/20"
         )}
         role="tree"
-        aria-label="文件浏览器"
+        aria-label="File explorer"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -119,3 +113,4 @@ export function FileTree({ items, onFileSelect }: FileTreeProps) {
     </>
   );
 }
+

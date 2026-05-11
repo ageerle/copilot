@@ -375,8 +375,8 @@ export const ChatInput: React.FC<ChatInputPropsType> = ({
   }, [showMentionMenu, updateMentionPosition]);
 
   return (
-    <div className="px-1 py-2 ">
-      <div className="max-w-[640px] w-full mx-auto bg-[#fff] dark:bg-[#18181a]">
+    <div className="w-full px-0 py-2">
+      <div className="w-full">
         <ErrorDisplay
           errors={errors}
           onAttemptFix={async (error, index) => {
@@ -396,7 +396,7 @@ export const ChatInput: React.FC<ChatInputPropsType> = ({
         <OptimizedPromptWord input={input} setInput={setInput}></OptimizedPromptWord>
         </div>
 
-        <div className="relative bg-transparent dark:bg-[#1a1a1c] rounded-lg border border-gray-600/30">
+        <div className="relative rounded-xl border border-gray-200/70 bg-transparent dark:border-[#2a2b31]">
           <div
             className={classNames(
               "relative",
@@ -419,15 +419,11 @@ export const ChatInput: React.FC<ChatInputPropsType> = ({
                     ? t(modePlaceholders[ChatMode.Chat])
                     : t(modePlaceholders[ChatMode.Builder])
                 )}
-                className={classNames(
-                  "w-full p-4 bg-transparent text-gray-900 dark:text-gray-100 focus:outline-none resize-none text-sm",
-                  "placeholder-gray-500 dark:placeholder-gray-400",
-                  "hover:bg-gray-50/50 dark:hover:bg-white/[0.03]",
-                  "focus:bg-gray-50/80 dark:focus:bg-white/[0.05]",
-                  "transition-colors duration-200",
-                  "relative z-10",
-                  isLoading && "opacity-50"
-                )}
+                  className={classNames(
+                    "relative z-10 w-full resize-none bg-transparent p-4 text-sm text-gray-900 transition-colors duration-200 focus:outline-none dark:text-gray-100",
+                    "placeholder-gray-500 dark:placeholder-gray-400",
+                    isLoading && "opacity-50"
+                  )}
                 rows={3}
                 style={{
                   minHeight: "60px",
@@ -503,7 +499,7 @@ export const ChatInput: React.FC<ChatInputPropsType> = ({
             )}
 
 
-            <div className="flex items-center justify-between px-2 py-2 border-t border-gray-600/30">
+            <div className="flex items-center justify-between border-t border-gray-200/70 px-2 py-2 dark:border-[#2a2b31]">
               <div className="flex items-center">
                 <UploadButtons
                   isLoading={isLoading}

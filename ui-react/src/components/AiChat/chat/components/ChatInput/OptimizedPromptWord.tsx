@@ -58,7 +58,7 @@ const PromptEnhanced = (props: PromptEnhancedProps) => {
     <div className="relative">
       {isOpen ? (
         <div
-          className={`absolute left-0 bottom-full mb-2 w-96 bg-white/80 dark:bg-[#1a1a1c] backdrop-blur-md rounded-lg shadow-xl p-4 border border-gray-200/50 dark:border-gray-700/50 transition-all duration-200 ease-in-out transform origin-bottom
+          className={`absolute left-0 bottom-full mb-2 w-96 rounded-lg border border-gray-200/80 bg-white p-4 shadow-xl transition-all duration-200 ease-in-out transform origin-bottom dark:border-[#2a2b31] dark:bg-[#18181a]
           ${
             isOpen
               ? "opacity-100 translate-y-0 scale-100"
@@ -70,7 +70,7 @@ const PromptEnhanced = (props: PromptEnhancedProps) => {
             {t('chat.optimizePrompt.title')}
           </h3>
           <textarea
-            className="w-full h-32 p-2.5 text-xs border rounded-lg bg-white/50 dark:bg-gray-700/50 dark:border-gray-600/50 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all duration-200"
+            className="h-32 w-full resize-none rounded-lg border border-gray-200/80 bg-transparent p-2.5 text-xs transition-colors duration-200 focus:border-blue-400 focus:outline-none dark:border-[#2a2b31] dark:text-gray-300"
             value={promptText}
             onChange={(e) => setPromptText(e.target.value)}
             placeholder={t('chat.optimizePrompt.placeholder')}
@@ -124,14 +124,14 @@ const PromptEnhanced = (props: PromptEnhancedProps) => {
         </div>
       ) : null}
       <div
-        className="mb-1 px-2 py-1 text-blue-500 text-xs rounded bg-blue-50 dark:bg-blue-500/20 dark:text-blue-400 w-fit cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-500/30 transition-all duration-200 ease-in-out flex items-center gap-1"
+        className="mb-2 flex w-fit cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-xs text-gray-500 transition-colors duration-200 ease-in-out hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
         onClick={() => {
           setPromptText(input)
           setIsOpen(!isOpen);
         }}
       >
         <svg
-          className="w-3.5 h-3.5"
+          className="h-3.5 w-3.5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
