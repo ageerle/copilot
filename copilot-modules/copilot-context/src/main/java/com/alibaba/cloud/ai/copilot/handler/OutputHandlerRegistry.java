@@ -21,14 +21,12 @@ public class OutputHandlerRegistry {
     private final OutputHandler defaultHandler = new DefaultHandler();
 
     public OutputHandlerRegistry(OutputHandler modelStreamingHandler,
-                                 OutputHandler modelFinishedHandler,
-                                 OutputHandler toolFinishedHandler,
-                                 OutputHandler hookFinishedHandler) {
+                                  OutputHandler modelFinishedHandler,
+                                  OutputHandler toolFinishedHandler) {
         // 注册各个 Handler
         handlers.put(OutputType.AGENT_MODEL_STREAMING, modelStreamingHandler);
         handlers.put(OutputType.AGENT_MODEL_FINISHED, modelFinishedHandler);
         handlers.put(OutputType.AGENT_TOOL_FINISHED, toolFinishedHandler);
-        handlers.put(OutputType.AGENT_HOOK_FINISHED, hookFinishedHandler);
     }
 
     /**
