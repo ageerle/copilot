@@ -5,10 +5,8 @@ import {GlobalLimitModal} from "./components/UserModal";
 import Header from "./components/Header";
 import AiChat from "./components/AiChat";
 import Login from "./components/Login";
-import EditorPreviewTabs from "./components/EditorPreviewTabs";
 import "./utils/i18";
 import classNames from "classnames";
-import {ChatMode} from "./types/chat";
 import {ToastContainer} from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import useInit from "./hooks/useInit";
@@ -48,10 +46,7 @@ function App() {
                 <div
                     className="flex w-full h-full max-h-[calc(100%-48px)] bg-[#f5f6f8] dark:bg-[#101114]"
                 >
-                    <div className="flex w-full h-full p-2 gap-2">
-                        <AiChat/>
-                        {mode === ChatMode.Builder && !initOpen && <EditorPreviewTabs/>}
-                    </div>
+                    <AiChat/>
                 </div>
             </div>
             <ToastContainer
