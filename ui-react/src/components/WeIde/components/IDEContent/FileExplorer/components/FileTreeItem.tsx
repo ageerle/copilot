@@ -10,7 +10,7 @@ import {createFile, createFolder, deleteFile, renameFile,} from "../utils/fileSy
 import FileIcon from "./fileIcon";
 import {cn} from "@/utils/cn";
 import { TopView } from "@/components/TopView";
-import { FilePreviewModal } from "@/components/FilePreviewModal";
+import { useFileStore } from "@/components/WeIde/stores/fileStore";
 
 interface FileTreeItemProps {
   item: FileItem;
@@ -50,14 +50,28 @@ export function FileTreeItem({
       
       // 双击预览文件
       if (e.detail === 2) {
-        TopView.show(
-          <FilePreviewModal 
-            visible={true} 
-            filePath={item.path} 
-            onClose={() => TopView.hide('file-preview-' + item.path)} 
-          />,
-          'file-preview-' + item.path
+        const { getContent } = useFileStore.getState();
+        const content = getContent(item.path) || '';
+        
+        // 创建简单的预览组件
+        const PreviewComponent = () => (
+          <div className="h-full w-full bg-white dark:bg-gray-900 p-4 overflow-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">预览: {item.path}</h3>
+              <button 
+                onClick={() => TopView.hide('file-preview-' + item.path)}
+                className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              >
+                关闭
+              </button>
+            </div>
+            <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-50 dark:bg-gray-800 p-4 rounded max-h-[80vh] overflow-auto">
+              {content}
+            </pre>
+          </div>
         );
+        
+        TopView.show(<PreviewComponent />, 'file-preview-' + item.path);
       }
     }
   };
