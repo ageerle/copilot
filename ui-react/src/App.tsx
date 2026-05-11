@@ -49,7 +49,6 @@ function App() {
                     className="flex flex-row w-full h-full max-h-[calc(100%-48px)] bg-white dark:bg-[#111]"
                 >
                     <AiChat/>
-                    {mode === ChatMode.Builder && !initOpen && <EditorPreviewTabs/>}
                 </div>
             </div>
             <ToastContainer

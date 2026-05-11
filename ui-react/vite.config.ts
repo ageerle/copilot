@@ -67,6 +67,7 @@ export default defineConfig(async ({ mode }) => {
     server: {
       host: '0.0.0.0', // 监听所有网络接口，允许通过局域网IP访问
       port: 5173, // 指定端口
+      allowedHosts: ['.monkeycode-ai.online'],
       headers: {
         "Cross-Origin-Embedder-Policy": "credentialless",
         "Cross-Origin-Opener-Policy": "same-origin",
