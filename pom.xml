@@ -44,7 +44,8 @@
         <okhttp.version>4.9.1</okhttp.version>
         <minio.version>8.4.0</minio.version>
         <mapstruct-plus.version>1.2.1</mapstruct-plus.version>
-        <json-schema-validator.version>1.5.1</json-schema-validator.version>
+        <!-- networknt 3.x requires Jackson 3, but this project runs on Spring Boot 3.4.x / Jackson 2.x -->
+        <json-schema-validator.version>2.0.1</json-schema-validator.version>
         <java-diff-utils.version>4.12</java-diff-utils.version>
         <commons-lang3.version>3.12.0</commons-lang3.version>
         <langchain4j.version>1.2.0</langchain4j.version>
