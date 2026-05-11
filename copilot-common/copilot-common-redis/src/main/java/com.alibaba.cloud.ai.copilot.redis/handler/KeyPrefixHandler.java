@@ -1,7 +1,7 @@
 package com.alibaba.cloud.ai.copilot.redis.handler;
 
 import com.alibaba.cloud.ai.copilot.core.utils.StringUtils;
-import org.redisson.api.NameMapper;
+import org.redisson.config.NameMapper;
 
 
 /**

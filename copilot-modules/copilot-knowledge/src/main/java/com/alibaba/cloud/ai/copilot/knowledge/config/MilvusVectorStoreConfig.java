@@ -71,7 +71,7 @@ public class MilvusVectorStoreConfig {
             log.info("Milvus 向量存储已初始化: 集合={}, 维度={}", collectionName, embeddingDimension);
             return vectorStore;
 
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.warn("Milvus 不可用，知识库功能已禁用（应用继续正常启动）: {}", e.getMessage());
             return new NoOpVectorStore();
         }

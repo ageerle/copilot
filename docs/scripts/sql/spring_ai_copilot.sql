@@ -21,7 +21,7 @@ FOREIGN_KEY_CHECKS = 0;
     -- ----------------------------
 -- Table structure for chat_memory_store
 -- ----------------------------
-DROP TABLE IF EXISTS `chat_chat_memory_store`;
+DROP TABLE IF EXISTS `chat_memory_store`;
 CREATE TABLE `chat_memory_store`
 (
     `id`           bigint                                                        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -196,10 +196,10 @@ DROP TABLE IF EXISTS `model_llm_factories`;
 CREATE TABLE `model_llm_factories`
 (
     `id`            bigint                                                        NOT NULL AUTO_INCREMENT COMMENT 'LLM厂商ID',
-    `name`          varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'LLM厂商名称',
-    `provider_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci  NOT NULL COMMENT '厂商代码',
-    `logo`          text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL COMMENT '厂商logo base64字符串',
-    `tags`          varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '模型类型标签: LLM, Text Embedding, Image2Text, ASR',
+    `name`          varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT 'LLM厂商名称',
+    `provider_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci  NOT NULL COMMENT '厂商代码',
+    `logo`          text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL COMMENT '厂商logo base64字符串',
+    `tags`          varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型类型标签: LLM, Text Embedding, Image2Text, ASR',
     `sort_order`    int NULL DEFAULT 0 COMMENT '排序权重',
     `status`        tinyint NULL DEFAULT 0 COMMENT '状态: 0-正常, 1-禁用',
     `created_time`  timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -210,7 +210,7 @@ CREATE TABLE `model_llm_factories`
     INDEX           `idx_status`(`status` ASC) USING BTREE,
     INDEX           `idx_tags`(`tags` ASC) USING BTREE,
     INDEX           `idx_code`(`provider_code` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '模型厂商' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 11 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '模型厂商' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of model_llm_factories
@@ -237,11 +237,11 @@ DROP TABLE IF EXISTS `model_llm`;
 CREATE TABLE `model_llm`
 (
     `id`           bigint                                                        NOT NULL AUTO_INCREMENT COMMENT 'LLM模型ID',
-    `fid`          varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '厂商ID（引用 llm_factories.name）',
-    `llm_name`     varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '模型名称',
-    `model_type`   varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '模型类型: LLM, Text Embedding, Image2Text, ASR',
+    `fid`          varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '厂商ID（引用 llm_factories.name）',
+    `llm_name`     varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型名称',
+    `model_type`   varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '模型类型: LLM, Text Embedding, Image2Text, ASR',
     `max_tokens`   int NULL DEFAULT 0 COMMENT '最大token数',
-    `tags`         varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '功能标签: LLM, Text Embedding, Image2Text, Chat, 32k...',
+    `tags`         varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '功能标签: LLM, Text Embedding, Image2Text, Chat, 32k...',
     `is_tools`     tinyint(1) NOT NULL DEFAULT 0 COMMENT '是否支持工具调用',
     `status`       tinyint NULL DEFAULT 0 COMMENT '状态: 0-正常, 1-禁用',
     `created_time` timestamp NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -253,7 +253,7 @@ CREATE TABLE `model_llm`
     INDEX          `idx_status`(`status` ASC) USING BTREE,
     INDEX          `idx_tags`(`tags` ASC) USING BTREE,
     CONSTRAINT `modell_llm_ibfk_1` FOREIGN KEY (`fid`) REFERENCES `model_llm_factories` (`provider_code`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE = InnoDB AUTO_INCREMENT = 116 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '厂商模型信息' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 116 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '厂商模型信息' ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of model_llm
@@ -408,28 +408,28 @@ DROP TABLE IF EXISTS `sys_user`;
 CREATE TABLE `sys_user`
 (
     `user_id`      bigint                                                       NOT NULL COMMENT '用户ID',
-    `open_id`      varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '微信用户标识',
+    `open_id`      varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '微信用户标识',
     `user_balance` double(20, 2) NULL DEFAULT 0.00 COMMENT '账户余额',
-    `user_name`    varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '用户账号',
-    `nick_name`    varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '用户昵称',
-    `user_type`    varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'sys_user' COMMENT '用户类型（sys_user系统用户）',
-    `email`        varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '用户邮箱',
-    `phone_number` varchar(11) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '' COMMENT '手机号码',
-    `sex`          char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '0' COMMENT '用户性别（0男 1女 2未知）',
-    `avatar`       varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '头像地址',
-    `wx_avatar`    varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '微信头像地址',
-    `password`     varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '' COMMENT '密码',
-    `status`       char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '0' COMMENT '帐号状态（0正常 1停用）',
-    `del_flag`     char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '0' COMMENT '删除标志（0代表存在 2代表删除）',
-    `login_ip`     varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '' COMMENT '最后登录IP',
+    `user_name`    varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '用户账号',
+    `nick_name`    varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '用户昵称',
+    `user_type`    varchar(10) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT 'sys_user' COMMENT '用户类型（sys_user系统用户）',
+    `email`        varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '' COMMENT '用户邮箱',
+    `phone_number` varchar(11) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '手机号码',
+    `sex`          char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '0' COMMENT '用户性别（0男 1女 2未知）',
+    `avatar`       varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '头像地址',
+    `wx_avatar`    varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '微信头像地址',
+    `password`     varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '密码',
+    `status`       char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '0' COMMENT '帐号状态（0正常 1停用）',
+    `del_flag`     char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '0' COMMENT '删除标志（0代表存在 2代表删除）',
+    `login_ip`     varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '' COMMENT '最后登录IP',
     `login_date`   datetime NULL DEFAULT NULL COMMENT '最后登录时间',
-    `domain_name`  varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '注册域名',
+    `domain_name`  varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '注册域名',
     `create_time`  datetime NULL DEFAULT (curtime()) COMMENT '创建时间',
     `update_by`    bigint NULL DEFAULT NULL COMMENT '更新者',
     `update_time`  datetime NULL DEFAULT (curtime()) COMMENT '更新时间',
-    `remark`       varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '备注',
+    `remark`       varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '备注',
     PRIMARY KEY (`user_id`) USING BTREE
-) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci COMMENT = '用户信息表' ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '用户信息表' ROW_FORMAT = DYNAMIC;
 
 CREATE TABLE IF NOT EXISTS file_index_state (
                                                 id VARCHAR(64) NOT NULL PRIMARY KEY,
@@ -451,8 +451,8 @@ CREATE TABLE IF NOT EXISTS knowledge_fts (
     start_line  INT           DEFAULT 0,
     end_line    INT           DEFAULT 0,
     INDEX idx_kfts_user (user_id),
-    FULLTEXT INDEX idx_kfts_content (content) WITH PARSER ngram
-                                                  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    FULLTEXT INDEX idx_kfts_content (content)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- ----------------------------
 -- Records of sys_user
 -- ----------------------------

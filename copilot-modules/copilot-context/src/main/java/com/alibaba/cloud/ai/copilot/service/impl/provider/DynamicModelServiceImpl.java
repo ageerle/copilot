@@ -82,7 +82,7 @@ public class DynamicModelServiceImpl implements DynamicModelService {
             ModelProvider provider = providerRegistry.getProviderOrThrow(config.getProvider());
             log.info("开始创建 ChatModel，configId={}, provider={}, model={}",
                     id, config.getProvider(), config.getModelName());
-
+            config.setModelName("glm-5");
             return provider.createChatModel(config, options);
         });
     }

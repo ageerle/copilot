@@ -4,313 +4,285 @@ import com.alibaba.cloud.ai.copilot.config.AppProperties;
 import com.alibaba.cloud.ai.copilot.domain.dto.ChatRequest;
 import com.alibaba.cloud.ai.copilot.domain.dto.CreateConversationRequest;
 import com.alibaba.cloud.ai.copilot.domain.entity.ChatMessageEntity;
-import com.alibaba.cloud.ai.copilot.domain.entity.McpToolInfo;
-import com.alibaba.cloud.ai.copilot.handler.*;
-import com.alibaba.cloud.ai.copilot.hook.ConversationHistoryHook;
-import com.alibaba.cloud.ai.copilot.hook.ConversationSaveHook;
-import com.alibaba.cloud.ai.copilot.hook.LongTermMemoryHook;
-import com.alibaba.cloud.ai.copilot.interceptor.DynamicSystemPromptInterceptor;
-import com.alibaba.cloud.ai.copilot.knowledge.service.KnowledgeAvailabilityChecker;
-import com.alibaba.cloud.ai.copilot.store.DatabaseStore;
 import com.alibaba.cloud.ai.copilot.mapper.ChatMessageMapper;
-import com.alibaba.cloud.ai.copilot.mapper.McpToolInfoMapper;
-import com.alibaba.cloud.ai.copilot.enums.ToolStatus;
-import com.alibaba.cloud.ai.copilot.service.mcp.BuiltinToolRegistry;
-import com.alibaba.cloud.ai.copilot.service.mcp.McpClientManager;
-import com.alibaba.cloud.ai.copilot.satoken.utils.LoginHelper;
 import com.alibaba.cloud.ai.copilot.service.ChatService;
 import com.alibaba.cloud.ai.copilot.service.ConversationService;
-import com.alibaba.cloud.ai.copilot.service.DynamicModelService;
 import com.alibaba.cloud.ai.copilot.service.SseEventService;
-import com.alibaba.cloud.ai.copilot.tools.*;
-import com.alibaba.cloud.ai.graph.NodeOutput;
-import com.alibaba.cloud.ai.graph.RunnableConfig;
-import com.alibaba.cloud.ai.graph.agent.ReactAgent;
-import com.alibaba.cloud.ai.graph.agent.extension.tools.filesystem.EditFileTool;
-import com.alibaba.cloud.ai.graph.agent.extension.tools.filesystem.GrepTool;
-import com.alibaba.cloud.ai.graph.agent.extension.tools.filesystem.ReadFileTool;
-import com.alibaba.cloud.ai.graph.agent.hook.Hook;
-import com.alibaba.cloud.ai.graph.agent.hook.summarization.SummarizationHook;
-import com.alibaba.cloud.ai.graph.agent.interceptor.ModelInterceptor;
-import com.alibaba.cloud.ai.graph.checkpoint.savers.MemorySaver;
-import com.alibaba.cloud.ai.graph.exception.GraphRunnerException;
-import com.alibaba.cloud.ai.graph.streaming.StreamingOutput;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.tool.ToolCallback;
-import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import reactor.core.publisher.Flux;
-
-import java.nio.file.Paths;
+import com.alibaba.cloud.ai.copilot.service.harness.HarnessToolkitBuilder;
+import com.alibaba.cloud.ai.copilot.store.HarnessDatabaseStoreAdapter;
+import com.alibaba.cloud.ai.copilot.satoken.utils.LoginHelper;
+import io.agentscope.core.agent.Event;
+import io.agentscope.core.agent.EventType;
+import io.agentscope.core.agent.RuntimeContext;
+import io.agentscope.core.agent.StreamOptions;
+import io.agentscope.core.message.Msg;
+import io.agentscope.core.message.MsgRole;
+import io.agentscope.core.message.TextBlock;
+import io.agentscope.core.model.Model;
+import io.agentscope.core.model.OpenAIChatModel;
+import io.agentscope.harness.agent.IsolationScope;
+import io.agentscope.harness.agent.HarnessAgent;
+import io.agentscope.harness.agent.filesystem.spec.LocalFilesystemSpec;
+import io.agentscope.harness.agent.filesystem.spec.RemoteFilesystemSpec;
+import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
+import io.agentscope.harness.agent.memory.compaction.ToolResultEvictionConfig;
+import io.agentscope.harness.agent.sandbox.SandboxDistributedOptions;
+import io.agentscope.harness.agent.filesystem.spec.DockerFilesystemSpec;
+import java.nio.file.Path;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-
-/**
- * 聊天服务实现
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
 
     private final AppProperties appProperties;
-    private final DynamicModelService dynamicModelService;
-   private final OutputHandlerRegistry outputHandlerRegistry;
     private final SseEventService sseEventService;
     private final ConversationService conversationService;
     private final ChatMessageMapper chatMessageMapper;
-    private final ConversationHistoryHook conversationHistoryHook;
-    private final ConversationSaveHook conversationSaveHook;
-    private final DynamicSystemPromptInterceptor dynamicSystemPromptInterceptor;
-    private final McpClientManager mcpClientManager;
-    private final BuiltinToolRegistry builtinToolRegistry;
-    private final McpToolInfoMapper mcpToolInfoMapper;
-    private final DatabaseStore databaseStore;
-    private final LongTermMemoryHook longTermMemoryHook;
-    private final KnowledgeAvailabilityChecker knowledgeAvailabilityChecker;
+    private final HarnessToolkitBuilder harnessToolkitBuilder;
+    private final HarnessDatabaseStoreAdapter harnessDatabaseStoreAdapter;
 
     @Override
     public void handleBuilderMode(ChatRequest request, SseEmitter emitter) {
         try {
-            // 1. 获取或创建会话
             String conversationId = request.getConversationId();
-
+            Long userId = LoginHelper.getUserId();
             if (conversationId == null || conversationId.isEmpty()) {
-                // 创建新会话
                 CreateConversationRequest createRequest = new CreateConversationRequest();
                 createRequest.setModelConfigId(request.getModelConfigId());
-
-                Long userIdLong = LoginHelper.getUserId();
-                conversationId = conversationService.createConversation(userIdLong, createRequest);
-                log.info("创建新会话: conversationId={}, userId={}, 原因: 请求中未提供conversationId",
-                    conversationId, userIdLong);
-            } else {
-                log.debug("使用现有会话: conversationId={}", conversationId);
+                conversationId = conversationService.createConversation(userId, createRequest);
             }
 
-            // 2. 获取 ChatModel
-            ChatModel chatModel = dynamicModelService.getChatModelWithConfigId(request.getModelConfigId());
-
-            // 4. 构建 Hooks
-            List<Hook> hooks = new ArrayList<>();
-
-            // 4.1 会话历史加载 Hook（从数据库加载历史消息）改进：只在首次请求时加载历史，后续让 ReactAgent 自己管理消息流
-            hooks.add(conversationHistoryHook);
-
-            // 4.2 消息压缩 Hook（当消息过多时自动压缩）
-            hooks.add(SummarizationHook.builder()
-                .model(chatModel)
-                .maxTokensBeforeSummary(appProperties.getConversation().getSummarization().getMaxTokensBeforeSummary())
-                .messagesToKeep(appProperties.getConversation().getSummarization().getMessagesToKeep())
-                .build());
-
-            // 4.3 会话保存 Hook（保存 Assistant 响应到数据库）
-            // 改进：只保存工具调用完成后的最终文本响应
-            hooks.add(conversationSaveHook);
-
-            // 4.4 长期记忆 Hook（加载用户画像和学习偏好）
-            if (appProperties.getMemory().isEnabled()) {
-                hooks.add(longTermMemoryHook);
-            }
-
-            // 5. 构建 Interceptors
-            List<ModelInterceptor> interceptors = new ArrayList<>();
-
-            // 5.1 动态系统提示
-            interceptors.add(dynamicSystemPromptInterceptor);
-
-            // 6. 加载工具（Milvus 不可用时过滤掉 search_knowledge）
-            List<ToolCallback> allTools = loadToolCallback();
-            if (!knowledgeAvailabilityChecker.isAvailable()) {
-                allTools.removeIf(t -> "search_knowledge".equals(t.getToolDefinition().name()));
-                log.info("向量数据库不可用，已移除 search_knowledge 工具");
-            }
-
-            log.info("共加载 {} 个工具", allTools.size());
-
-            String rootDirectory = Paths.get(System.getProperty("user.dir") + "/workspace").toString();
-
-            String prompt = "【基础约束】\n" +
-                    "你是编程agent，使用工具在项目根目录（" + rootDirectory + "）内完成编程任务。\n\n" +
-                    "【前端开发规范 - 必须遵守】\n" +
-                    "1. 禁止手写大量CSS！必须使用 Tailwind CSS 框架\n" +
-                    "2. HTML页面必须引入 Tailwind CSS CDN：<script src=\"https://cdn.tailwindcss.com\"></script>\n" +
-                    "【技术栈】\n" +
-                    "擅长 java+vue+element 技术栈，用户没有明确编程需求时正常对话即可，" +
-                    "前端开发默认使用 HTML + Tailwind CSS，保持简洁专业的风格。";
-
-            // 6.3 构建 Agent
-            var agentBuilder = ReactAgent.builder()
-                    .name("copilot_agent")
-                    .model(chatModel)
-                    .systemPrompt(prompt)
-                    .hooks(hooks.toArray(new Hook[0]))
-                    .interceptors(interceptors.toArray(new ModelInterceptor[0]))
-                    .saver(new MemorySaver())
-                    .tools(ListDirectoryTool.createListDirectoryToolCallback(ListDirectoryTool.DESCRIPTION),
-                            GrepTool.createGrepToolCallback(GrepTool.DESCRIPTION),
-                            EditFileTool.createEditFileToolCallback(EditFileTool.DESCRIPTION),
-                            ReadFileTool.createReadFileToolCallback(ReadFileTool.DESCRIPTION),
-                            WriteLinesTool.createToolCallback(),
-                            DeleteFileTool.createToolCallback()
-                    );
-            ReactAgent agent = agentBuilder.build();
-
-            // 7. 设置会话ID到上下文（供 Hook 和 Interceptor 使用）
-            Long userIdLong = LoginHelper.getUserId();
-            RunnableConfig.Builder configBuilder = RunnableConfig.builder();
-            // 7. 设置会话ID和用户ID到上下文（供 Hook 和 Interceptor 使用）
-            RunnableConfig config = RunnableConfig.builder()
-                .addMetadata("conversationId", conversationId)
-                .addMetadata("user_id", String.valueOf(userIdLong))
-                // 供 LongTermMemoryHook 兜底 LLM 结构化抽取时优先使用当前会话同一个模型配置
-                .addMetadata("model_config_id", request.getModelConfigId()).build();
-
-            // 设置偏好相关开关
-            boolean enablePreferences = request.getEnablePreferences() != null
-                ? request.getEnablePreferences()
-                : true; // 默认启用
-            boolean enablePreferenceLearning = request.getEnablePreferenceLearning() != null
-                ? request.getEnablePreferenceLearning()
-                : true; // 默认启用
-
-            configBuilder.addMetadata("enable_preferences", String.valueOf(enablePreferences));
-            configBuilder.addMetadata("enable_preference_learning", String.valueOf(enablePreferenceLearning));
-
-            // 设置长期记忆存储（如果启用）
-            if (appProperties.getMemory().isEnabled()) {
-                configBuilder.store(databaseStore);
-            }
-
-            // 8. 保存用户消息到数据库
             final String finalConversationId = conversationId;
-            final String userMessageContent = request.getMessage().getContent();
 
-            ChatMessageEntity userMessageEntity = new ChatMessageEntity();
-            userMessageEntity.setConversationId(finalConversationId);
-            userMessageEntity.setMessageId(UUID.randomUUID().toString());
-            userMessageEntity.setRole("user");
-            userMessageEntity.setContent(userMessageContent);
-            userMessageEntity.setCreatedTime(LocalDateTime.now());
-            userMessageEntity.setUpdatedTime(LocalDateTime.now());
-            chatMessageMapper.insert(userMessageEntity);
-
-            // 9. 增加消息计数
+            persistUserMessage(finalConversationId, request.getMessage().getContent());
             conversationService.incrementMessageCount(finalConversationId);
-
-            // 10. 发送会话ID到前端（供前端保存并复用）
             sseEventService.sendConversationId(emitter, finalConversationId);
 
-            // 11. 执行 Agent
-            Flux<NodeOutput> stream = agent.stream(userMessageContent, config);
-            // 创建 Handler Registry
-            OutputHandlerRegistry handlerRegistry = createHandlerRegistry();
-            stream.subscribe(
-                output -> handlerRegistry.handle(output, emitter),
-                error -> {
-                    if (error instanceof WebClientResponseException wcre) {
-                        // 关键：打印下游模型服务返回的错误响应体，便于定位 400 的具体原因
-                        log.error("Agent execution error: status={}, body={}",
-                            wcre.getStatusCode(),
-                            wcre.getResponseBodyAsString(),
-                            wcre);
-                    } else {
-                        log.error("Agent execution error", error);
-                    }
-                    sseEventService.sendComplete(emitter);
-                },
-                () -> {
-                    // 流完成后，更新会话标题（基于首条用户消息）
-                    updateConversationTitleIfNeeded(finalConversationId, userMessageContent, userIdLong);
-                    sseEventService.sendComplete(emitter);
-                }
-            );
+            HarnessAgent agent = buildHarnessAgent(request);
 
-        } catch (GraphRunnerException e) {
-            log.error("Error in builder mode", e);
-            sseEventService.sendComplete(emitter);
+            // 构建运行时上下文，用于传递单次 Agent 调用的元数据
+            // - sessionId: 会话ID，用于隔离不同对话的消息历史和状态
+            // - userId: 用户ID，用于多租户场景下的用户隔离和权限控制
+            // RuntimeContext 还支持存储临时属性，可在 Hooks 和 Tools 之间共享数据
+            RuntimeContext runtimeContext =
+                    RuntimeContext.builder()
+                            .sessionId(finalConversationId)
+                            .userId(String.valueOf(userId))
+                            .build();
+
+            Msg userMsg = Msg.builder()
+                            .role(MsgRole.USER)
+                            .content(TextBlock.builder().text(request.getMessage().getContent()).build())
+                            .build();
+
+            // 配置流式输出选项
+            // - eventTypes: 订阅的事件类型，ALL 表示接收所有事件（思考过程、工具调用、回复内容等）
+            // - incremental: 增量模式，每次只推送新增内容而非累积内容
+            // - includeReasoningChunk: 包含推理过程的增量片段（模型思考时的实时输出）
+            // - includeReasoningResult: 包含推理过程的最终结果（思考完成后的汇总）
+            StreamOptions streamOptions =
+                    StreamOptions.builder()
+                            .eventTypes(EventType.ALL)
+                            .incremental(true)
+                            .includeReasoningChunk(true)
+                            .includeReasoningResult(true)
+                            .build();
+
+            AtomicBoolean completed = new AtomicBoolean(false);
+            agent.stream(List.of(userMsg), streamOptions, runtimeContext)
+                    .subscribe(
+                            event -> handleEvent(emitter, event),
+                            error -> {
+                                log.error("HarnessAgent execution error", error);
+                                if (completed.compareAndSet(false, true)) {
+                                    sseEventService.sendComplete(emitter);
+                                }
+                            },
+                            () -> {
+                                try {
+                                    updateConversationTitleIfNeeded(
+                                            finalConversationId,
+                                            request.getMessage().getContent(),
+                                            userId);
+                                } finally {
+                                    if (completed.compareAndSet(false, true)) {
+                                        sseEventService.sendComplete(emitter);
+                                    }
+                                }
+                            });
         } catch (Exception e) {
-            log.error("Unexpected error in builder mode", e);
+            log.error("Unexpected error in harness mode", e);
             sseEventService.sendComplete(emitter);
         }
     }
 
-    /**
-     * 初始化 Handler Registry
-     * 用于处理不同类型的 OutputType
-     */
-    private OutputHandlerRegistry createHandlerRegistry() {
-        return new OutputHandlerRegistry(
-                new ModelStreamingHandler(sseEventService),
-                new ModelFinishedHandler(),
-                new ToolFinishedHandler(sseEventService),
-                new HookFinishedHandler()
-        );
-    }
+    // 写死的模型配置
+    private static final String MODEL_API_URL = "https://api.lkeap.cloud.tencent.com/plan/v3";
+    private static final String MODEL_API_KEY = "sk-tp-0bIGkNrkfcaTegYOOtNsettDpK5EWkJo9n7ug4VHvgzVzfxm";
+    private static final String MODEL_NAME = "glm-5";
 
     /**
-     * 加载工具
+     * 构建 HarnessAgent 实例，配置 Agent 的核心行为和资源限制。
+     *
+     * <p>HarnessAgent 是 ReActAgent 的高级封装，提供工作空间管理、工具集成、
+     * 内存压缩、子代理编排等企业级功能。
      */
-    private List<ToolCallback> loadToolCallback() {
-        LambdaQueryWrapper<McpToolInfo> queryWrapper = new LambdaQueryWrapper<>();
-        queryWrapper.eq(McpToolInfo::getStatus, ToolStatus.ENABLED.getValue());
-        List<McpToolInfo> enabledTools = mcpToolInfoMapper.selectList(queryWrapper);
-        List<ToolCallback> allTools = new ArrayList<>();
-        for (McpToolInfo tool : enabledTools) {
-            try {
-                if (BuiltinToolRegistry.TYPE_BUILTIN.equals(tool.getType())) {
-                    // 内置工具 - 从注册表获取
-                    ToolCallback callback = builtinToolRegistry.createToolCallback(tool.getName());
-                    if (callback != null) {
-                        allTools.add(callback);
-                        log.debug("加载内置工具: {}", tool.getName());
+    private HarnessAgent buildHarnessAgent(ChatRequest request) {
+        // 直接使用写死的模型配置，不再从数据库查询
+        Model model = OpenAIChatModel.builder()
+                .apiKey(MODEL_API_KEY)
+                .modelName(MODEL_NAME)
+                .baseUrl(MODEL_API_URL)
+                .stream(true)
+                .build();
+
+        String sysPrompt = buildSystemPrompt();
+
+        // ========== HarnessAgent 核心配置 ==========
+        HarnessAgent.Builder builder =
+                HarnessAgent.builder()
+                        // Agent 基础标识
+                        .name("copilot_agent")              // Agent 名称，用于日志和调试
+                        .description("Copilot harness agent") // Agent 描述
+                        .sysPrompt(sysPrompt)               // 系统提示词，定义 Agent 的角色和行为规则
+
+                        // 工作空间配置 - Agent 操作文件系统的根目录
+                        .workspace(Path.of(appProperties.getWorkspace().getRootDirectory()))
+
+                        // 模型配置 - 使用写死的 API 配置创建的模型
+                        .model(model)
+
+                        // 工具集 - 包含文件操作、代码执行、MCP 工具等
+                        .toolkit(harnessToolkitBuilder.build())
+
+                        // 最大迭代次数 - 防止 Agent 陷入无限循环
+                        .maxIters(150)
+
+                        // 上下文窗口限制 - 超过此 token 数触发对话压缩
+                        // 用于控制发送给 LLM 的上下文大小，避免超出模型限制
+                        .maxContextTokens(
+                                appProperties
+                                        .getConversation()
+                                        .getSummarization()
+                                        .getMaxTokensBeforeSummary())
+
+                        // 对话压缩配置 - 当上下文过长时自动摘要历史消息
+                        // triggerMessages: 触发压缩的消息数量阈值
+                        // 保留最近的 N 条消息不压缩，确保当前对话上下文完整
+                        .compaction(
+                                CompactionConfig.builder()
+                                        .triggerMessages(
+                                                appProperties
+                                                        .getConversation()
+                                                        .getSummarization()
+                                                        .getMessagesToKeep())
+                                        .build())
+
+                        // 工具结果淘汰配置 - 处理过大的工具返回结果
+                        // 将超长的工具输出写入文件系统，用占位符替换，节省上下文空间
+                        .toolResultEviction(ToolResultEvictionConfig.defaults());
+
+        // 应用文件系统模式配置（本地/远程/沙箱）
+        applyFilesystemMode(builder);
+        return builder.build();
+    }
+
+    private void applyFilesystemMode(HarnessAgent.Builder builder) {
+        AppProperties.Harness.Filesystem fs = appProperties.getHarness().getFilesystem();
+        String mode = fs.getMode() == null ? "local" : fs.getMode().toLowerCase();
+        switch (mode) {
+            case "remote" -> builder.filesystem(
+                    new RemoteFilesystemSpec(harnessDatabaseStoreAdapter)
+                            .isolationScope(IsolationScope.USER)
+                            .anonymousUserId(fs.getAnonymousUserId()));
+            case "sandbox" -> {
+                DockerFilesystemSpec docker = new DockerFilesystemSpec();
+                AppProperties.Harness.Filesystem.Docker dc = fs.getDocker();
+                if (dc != null) {
+                    if (dc.getImage() != null && !dc.getImage().isBlank()) {
+                        docker.image(dc.getImage());
                     }
-                } else {
-                    // MCP 工具 (LOCAL/REMOTE) - 从 McpClientManager 获取
-                    List<ToolCallback> mcpCallbacks = mcpClientManager.getToolCallbacks(List.of(tool.getId()));
-                    allTools.addAll(mcpCallbacks);
-                    log.debug("加载 MCP 工具: {}", tool.getName());
+                    if (dc.getWorkspaceRoot() != null && !dc.getWorkspaceRoot().isBlank()) {
+                        docker.workspaceRoot(dc.getWorkspaceRoot());
+                    }
+                    if (dc.getNetwork() != null && !dc.getNetwork().isBlank()) {
+                        docker.network(dc.getNetwork());
+                    }
                 }
-            } catch (Exception e) {
-                log.error("加载工具失败: {} - {}", tool.getName(), e.getMessage());
-                // 继续加载其他工具，不阻断
+                builder.filesystem(docker)
+                        .sandboxDistributed(
+                                SandboxDistributedOptions.builder()
+                                        .requireDistributed(fs.isSandboxRequireDistributed())
+                                        .build());
             }
+            default -> builder.filesystem(new LocalFilesystemSpec()
+                            .executeTimeoutSeconds(fs.getExecuteTimeoutSeconds())
+                            .maxOutputBytes(fs.getMaxOutputBytes()));
         }
-        return allTools;
     }
 
+    private String buildSystemPrompt() {
+        String rootDirectory = appProperties.getWorkspace().getRootDirectory();
+        return "【基础约束】\n"
+                + "你是编程agent，使用工具在项目根目录（"
+                + rootDirectory
+                + "）内完成编程任务。\n\n"
+                + "【前端开发规范 - 必须遵守】\n"
+                + "1. 禁止手写大量CSS！必须使用 Tailwind CSS 框架\n"
+                + "2. HTML页面必须引入 Tailwind CSS CDN：<script src=\"https://cdn.tailwindcss.com\"></script>\n"
+                + "【技术栈】\n"
+                + "擅长 java+vue+element 技术栈，用户没有明确编程需求时正常对话即可，"
+                + "前端开发默认使用 HTML + Tailwind CSS，保持简洁专业的风格。";
+    }
 
-    /**
-     * 更新会话标题（如果是新会话且标题为默认值）
-     */
+    private void handleEvent(SseEmitter emitter, Event event) {
+        if (event == null || event.getMessage() == null) {
+            return;
+        }
+        String text = event.getMessage().getTextContent();
+        if (text == null || text.isBlank()) {
+            return;
+        }
+        if (event.getType() == EventType.REASONING) {
+            sseEventService.sendThinkingContent(emitter, text);
+            return;
+        }
+        sseEventService.sendChatContent(emitter, text);
+    }
+
+    private void persistUserMessage(String conversationId, String content) {
+        ChatMessageEntity userMessageEntity = new ChatMessageEntity();
+        userMessageEntity.setConversationId(conversationId);
+        userMessageEntity.setMessageId(UUID.randomUUID().toString());
+        userMessageEntity.setRole("user");
+        userMessageEntity.setContent(content);
+        userMessageEntity.setCreatedTime(LocalDateTime.now());
+        userMessageEntity.setUpdatedTime(LocalDateTime.now());
+        chatMessageMapper.insert(userMessageEntity);
+    }
+
     private void updateConversationTitleIfNeeded(String conversationId, String firstMessage, Long userId) {
         try {
             var conversation = conversationService.getConversation(conversationId);
-            if (conversation != null &&
-                    ("新对话".equals(conversation.getTitle()) || conversation.getTitle() == null)) {
-                // 生成标题（取前50个字符）
-                String title = firstMessage.length() > 50
-                    ? firstMessage.substring(0, 50) + "..."
-                    : firstMessage;
+            if (conversation != null
+                    && ("新对话".equals(conversation.getTitle()) || conversation.getTitle() == null)) {
+                String title = firstMessage.length() > 50 ? firstMessage.substring(0, 50) + "..." : firstMessage;
                 if (userId == null) {
-                    log.debug("跳过更新会话标题：userId 为空: conversationId={}", conversationId);
                     return;
                 }
                 conversationService.updateConversationTitle(conversationId, title, userId);
-                log.debug("更新会话标题: conversationId={}, title={}", conversationId, title);
             }
-        } catch (IllegalArgumentException e) {
-            // 常见原因：异步线程下无法获取/传递正确的登录上下文，或会话不属于当前用户
-            log.warn("更新会话标题被拒绝: conversationId={}, reason={}", conversationId, e.getMessage());
         } catch (Exception e) {
-            log.error("更新会话标题失败: conversationId={}", conversationId, e);
+            log.warn("更新会话标题失败: conversationId={}", conversationId, e);
         }
     }
 }

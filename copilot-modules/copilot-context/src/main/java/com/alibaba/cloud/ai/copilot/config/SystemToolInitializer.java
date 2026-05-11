@@ -3,9 +3,9 @@ package com.alibaba.cloud.ai.copilot.config;
 import com.alibaba.cloud.ai.copilot.domain.entity.McpToolInfo;
 import com.alibaba.cloud.ai.copilot.enums.ToolStatus;
 import com.alibaba.cloud.ai.copilot.mapper.McpToolInfoMapper;
-import com.alibaba.cloud.ai.copilot.service.mcp.BuiltinToolDefinition;
-import com.alibaba.cloud.ai.copilot.service.mcp.BuiltinToolRegistry;
+import com.alibaba.cloud.ai.copilot.service.harness.HarnessBuiltinToolCatalog;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import java.util.HashSet;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -31,7 +31,7 @@ import java.time.LocalDateTime;
 public class SystemToolInitializer implements ApplicationRunner {
 
     private final McpToolInfoMapper mcpToolInfoMapper;
-    private final BuiltinToolRegistry builtinToolRegistry;
+    private final HarnessBuiltinToolCatalog harnessBuiltinToolCatalog;
 
     @Override
     @Transactional
@@ -41,7 +41,9 @@ public class SystemToolInitializer implements ApplicationRunner {
         int addedCount = 0;
         int existingCount = 0;
 
-        for (BuiltinToolDefinition tool : builtinToolRegistry.getAllBuiltinTools()) {
+        var supportedNames = new HashSet<>(harnessBuiltinToolCatalog.supportedToolNames());
+
+        for (HarnessBuiltinToolCatalog.BuiltinToolMeta tool : harnessBuiltinToolCatalog.all()) {
             try {
                 boolean added = syncBuiltinTool(tool);
                 if (added) {
@@ -54,6 +56,8 @@ public class SystemToolInitializer implements ApplicationRunner {
             }
         }
 
+        disableUnsupportedBuiltinTools(supportedNames);
+
         log.info("系统内置工具同步完成: 新增 {} 个, 已存在 {} 个", addedCount, existingCount);
     }
 
@@ -63,21 +67,28 @@ public class SystemToolInitializer implements ApplicationRunner {
      * @param tool 工具定义
      * @return 是否新增（true=新增, false=已存在）
      */
-    private boolean syncBuiltinTool(BuiltinToolDefinition tool) {
+    private boolean syncBuiltinTool(HarnessBuiltinToolCatalog.BuiltinToolMeta tool) {
         // 检查是否已存在
         LambdaQueryWrapper<McpToolInfo> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(McpToolInfo::getName, tool.name())
-                .eq(McpToolInfo::getType, BuiltinToolRegistry.TYPE_BUILTIN);
+                .eq(McpToolInfo::getType, "BUILTIN");
 
         McpToolInfo existing = mcpToolInfoMapper.selectOne(wrapper);
 
         if (existing != null) {
-            // 已存在，更新描述信息（保留状态不变）
+            boolean changed = false;
             if (!tool.description().equals(existing.getDescription())) {
                 existing.setDescription(tool.description());
+                changed = true;
+            }
+            if (!ToolStatus.isEnabled(existing.getStatus())) {
+                existing.setStatus(ToolStatus.ENABLED.getValue());
+                changed = true;
+            }
+            if (changed) {
                 existing.setUpdateTime(LocalDateTime.now());
                 mcpToolInfoMapper.updateById(existing);
-                log.debug("更新内置工具描述: {}", tool.name());
+                log.debug("更新内置工具定义: {}", tool.name());
             }
             return false;
         }
@@ -86,7 +97,7 @@ public class SystemToolInitializer implements ApplicationRunner {
         McpToolInfo newTool = new McpToolInfo();
         newTool.setName(tool.name());
         newTool.setDescription(tool.description());
-        newTool.setType(BuiltinToolRegistry.TYPE_BUILTIN);
+        newTool.setType("BUILTIN");
         newTool.setStatus(ToolStatus.ENABLED.getValue()); // 默认启用
         newTool.setConfigJson(null);  // 内置工具不需要配置
         newTool.setCreateTime(LocalDateTime.now());
@@ -96,5 +107,17 @@ public class SystemToolInitializer implements ApplicationRunner {
         log.info("新增内置工具: {} ({})", tool.name(), tool.displayName());
         return true;
     }
-}
 
+    private void disableUnsupportedBuiltinTools(HashSet<String> supportedNames) {
+        LambdaQueryWrapper<McpToolInfo> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(McpToolInfo::getType, "BUILTIN");
+        for (McpToolInfo tool : mcpToolInfoMapper.selectList(wrapper)) {
+            if (!supportedNames.contains(tool.getName()) && ToolStatus.isEnabled(tool.getStatus())) {
+                tool.setStatus(ToolStatus.DISABLED.getValue());
+                tool.setUpdateTime(LocalDateTime.now());
+                mcpToolInfoMapper.updateById(tool);
+                log.warn("禁用未接入 Harness 的内置工具: {}", tool.getName());
+            }
+        }
+    }
+}

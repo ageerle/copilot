@@ -1,6 +1,5 @@
 package com.alibaba.cloud.ai.copilot.tools;
 
-import com.alibaba.cloud.ai.copilot.service.mcp.BuiltinToolProvider;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyDescription;
 import jakarta.validation.constraints.NotBlank;

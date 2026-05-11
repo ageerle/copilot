@@ -46,9 +46,12 @@ function App() {
             >
                 <Header/>
                 <div
-                    className="flex flex-row w-full h-full max-h-[calc(100%-48px)] bg-white dark:bg-[#111]"
+                    className="flex w-full h-full max-h-[calc(100%-48px)] bg-[#f5f6f8] dark:bg-[#101114]"
                 >
-                    <AiChat/>
+                    <div className="flex w-full h-full p-2 gap-2">
+                        <AiChat/>
+                        {mode === ChatMode.Builder && !initOpen && <EditorPreviewTabs/>}
+                    </div>
                 </div>
             </div>
             <ToastContainer

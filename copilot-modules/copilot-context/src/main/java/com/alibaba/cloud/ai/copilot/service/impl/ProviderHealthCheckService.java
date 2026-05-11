@@ -236,7 +236,7 @@ public class ProviderHealthCheckService {
         long startTime = System.currentTimeMillis();
 
         try {
-            org.springframework.ai.chat.model.ChatModel chatModel = provider.createChatModel(testConfig);
+                org.springframework.ai.chat.model.ChatModel chatModel = provider.createChatModel(testConfig);
             String response = chatModel.call("hi");
             long responseTime = System.currentTimeMillis() - startTime;
 

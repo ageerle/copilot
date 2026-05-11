@@ -5,14 +5,13 @@ import com.alibaba.cloud.ai.copilot.domain.dto.McpToolTestResult;
 import com.alibaba.cloud.ai.copilot.domain.entity.McpToolInfo;
 import com.alibaba.cloud.ai.copilot.enums.ToolStatus;
 import com.alibaba.cloud.ai.copilot.mapper.McpToolInfoMapper;
-import com.alibaba.cloud.ai.copilot.service.mcp.BuiltinToolRegistry;
+import com.alibaba.cloud.ai.copilot.service.harness.HarnessBuiltinToolCatalog;
 import com.alibaba.cloud.ai.copilot.service.mcp.McpClientManager;
 import com.alibaba.cloud.ai.copilot.service.McpToolService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.tool.ToolCallback;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -32,8 +31,10 @@ import java.util.List;
 public class McpToolServiceImpl extends ServiceImpl<McpToolInfoMapper, McpToolInfo>
         implements McpToolService {
 
+    private static final String BUILTIN_TYPE = "BUILTIN";
+
     private final McpClientManager mcpClientManager;
-    private final BuiltinToolRegistry builtinToolRegistry;
+    private final HarnessBuiltinToolCatalog harnessBuiltinToolCatalog;
 
     @Override
     public McpToolListResult listTools(String keyword, String type, String status) {
@@ -78,7 +79,7 @@ public class McpToolServiceImpl extends ServiceImpl<McpToolInfoMapper, McpToolIn
     public McpToolInfo updateTool(McpToolInfo tool) {
         // 检查是否为内置工具，内置工具不允许编辑
         McpToolInfo existingTool = getById(tool.getId());
-        if (existingTool != null && BuiltinToolRegistry.TYPE_BUILTIN.equals(existingTool.getType())) {
+        if (existingTool != null && BUILTIN_TYPE.equals(existingTool.getType())) {
             throw new RuntimeException("内置工具不允许编辑");
         }
 
@@ -96,7 +97,7 @@ public class McpToolServiceImpl extends ServiceImpl<McpToolInfoMapper, McpToolIn
     public void deleteTool(Long id) {
         // 检查是否为内置工具，内置工具不允许删除
         McpToolInfo tool = getById(id);
-        if (tool != null && BuiltinToolRegistry.TYPE_BUILTIN.equals(tool.getType())) {
+        if (tool != null && BUILTIN_TYPE.equals(tool.getType())) {
             throw new RuntimeException("内置工具不允许删除");
         }
 
@@ -112,7 +113,7 @@ public class McpToolServiceImpl extends ServiceImpl<McpToolInfoMapper, McpToolIn
         List<Long> deletableIds = ids.stream()
                 .filter(id -> {
                     McpToolInfo tool = getById(id);
-                    return tool == null || !BuiltinToolRegistry.TYPE_BUILTIN.equals(tool.getType());
+                    return tool == null || !BUILTIN_TYPE.equals(tool.getType());
                 })
                 .toList();
 
@@ -147,7 +148,7 @@ public class McpToolServiceImpl extends ServiceImpl<McpToolInfoMapper, McpToolIn
         }
 
         // 根据工具类型选择不同的测试逻辑
-        if (BuiltinToolRegistry.TYPE_BUILTIN.equals(tool.getType())) {
+        if (BUILTIN_TYPE.equals(tool.getType())) {
             // 内置工具 - 直接验证是否在注册表中
             return testBuiltinTool(tool);
         } else {
@@ -165,16 +166,15 @@ public class McpToolServiceImpl extends ServiceImpl<McpToolInfoMapper, McpToolIn
      */
     private McpToolTestResult testBuiltinTool(McpToolInfo tool) {
         try {
-            ToolCallback callback = builtinToolRegistry.createToolCallback(tool.getName());
-            if (callback != null) {
+            if (harnessBuiltinToolCatalog.supportedToolNames().contains(tool.getName())) {
                 return McpToolTestResult.success(
-                        String.format("内置工具 [%s] 已注册，可正常使用", tool.getName()),
+                        String.format("内置工具 [%s] 已由 Harness 接入，可正常使用", tool.getName()),
                         1,
                         List.of(tool.getName())
                 );
             } else {
                 return McpToolTestResult.fail(
-                        String.format("内置工具 [%s] 未在注册表中找到，请检查工具名称是否正确", tool.getName())
+                        String.format("内置工具 [%s] 尚未接入 Harness，当前应保持禁用", tool.getName())
                 );
             }
         } catch (Exception e) {
@@ -183,4 +183,3 @@ public class McpToolServiceImpl extends ServiceImpl<McpToolInfoMapper, McpToolIn
         }
     }
 }
-
