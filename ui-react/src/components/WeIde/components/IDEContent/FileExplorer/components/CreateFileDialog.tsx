@@ -26,7 +26,7 @@ export function CreateFileDialog({ path, onSubmit, onCancel }: CreateFileDialogP
     <div className="fixed inset-0 bg-black/20 dark:bg-black/50 flex items-center justify-center z-50">
       <form 
         onSubmit={handleSubmit}
-        className="bg-white dark:bg-[#1a1a1c] rounded-lg shadow-xl w-[400px] p-4 border border-[#e4e4e4] dark:border-[#454545]"
+        className="bg-white dark:bg-[#1a1a1c] rounded-lg shadow-xl w-[400px] p-4 border border-[#d0d0d0] dark:border-[#555555]"
       >
         <h2 className="text-sm font-semibold mb-4 text-[#444444] dark:text-white">Create New File</h2>
         <div className="mb-4">
@@ -38,7 +38,7 @@ export function CreateFileDialog({ path, onSubmit, onCancel }: CreateFileDialogP
               setError('');
             }}
             placeholder="Enter file name"
-            className="w-full px-3 py-2 bg-white dark:bg-[#3c3c3c] rounded border border-[#e4e4e4] dark:border-[#454545] text-[#444444] dark:text-white text-sm focus:border-[#0066b8] dark:focus:border-[#007acc] outline-none placeholder-[#767676] dark:placeholder-gray-400"
+            className="w-full px-3 py-2 bg-white dark:bg-[#3c3c3c] rounded border border-[#d0d0d0] dark:border-[#555555] text-[#444444] dark:text-white text-sm focus:border-[#0066b8] dark:focus:border-[#007acc] outline-none placeholder-[#767676] dark:placeholder-gray-400"
             autoFocus
           />
           {error && <p className="text-red-600 dark:text-red-500 text-xs mt-1">{error}</p>}

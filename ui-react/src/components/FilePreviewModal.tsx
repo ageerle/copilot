@@ -88,10 +88,10 @@ export function FilePreviewModal({filePath, onClose}: FilePreviewModalProps) {
       aria-label="File preview"
     >
       <div
-        className="flex h-[82vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-gray-200 bg-white shadow-2xl dark:border-[#30323a] dark:bg-[#18181a]"
+        className="flex h-[82vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-gray-300 bg-white shadow-2xl dark:border-[#40424a] dark:bg-[#18181a]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-gray-200 px-3 dark:border-[#30323a]">
+        <div className="flex h-11 shrink-0 items-center gap-2 border-b border-gray-300 px-3 dark:border-[#40424a]">
           <FileCode2 className="h-4 w-4 text-gray-500 dark:text-gray-400" />
           <div className="min-w-0 flex-1 truncate text-sm font-medium text-gray-800 dark:text-gray-100">
             {filePath}

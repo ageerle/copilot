@@ -45,7 +45,7 @@ export function CreateDialog({ type, isOpen, path, onSubmit, onClose }: CreateDi
               setError('');
             }}
             placeholder={`Enter ${type} name`}
-            className="w-full px-3 py-2 bg-[#3c3c3c] rounded border border-[#454545] text-sm focus:border-[#007acc] outline-none"
+            className="w-full px-3 py-2 bg-[#3c3c3c] rounded border border-[#555555] text-sm focus:border-[#007acc] outline-none"
             autoFocus
           />
           {error && <p className="text-red-500 text-xs mt-1">{error}</p>}

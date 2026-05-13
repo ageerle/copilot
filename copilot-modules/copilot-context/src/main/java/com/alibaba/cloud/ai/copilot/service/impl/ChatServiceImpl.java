@@ -4,6 +4,9 @@ import com.alibaba.cloud.ai.copilot.config.AppProperties;
 import com.alibaba.cloud.ai.copilot.domain.dto.ChatRequest;
 import com.alibaba.cloud.ai.copilot.domain.dto.CreateConversationRequest;
 import com.alibaba.cloud.ai.copilot.domain.entity.ChatMessageEntity;
+import com.alibaba.cloud.ai.copilot.hook.agentscope.AgentScopeHookRegistry;
+import com.alibaba.cloud.ai.copilot.hook.agentscope.AgentScopeSseHookContext;
+import com.alibaba.cloud.ai.copilot.hook.agentscope.AgentScopeSseHookContextHolder;
 import com.alibaba.cloud.ai.copilot.mapper.ChatMessageMapper;
 import com.alibaba.cloud.ai.copilot.service.ChatService;
 import com.alibaba.cloud.ai.copilot.service.ConversationService;
@@ -11,6 +14,7 @@ import com.alibaba.cloud.ai.copilot.service.SseEventService;
 import com.alibaba.cloud.ai.copilot.service.harness.HarnessToolkitBuilder;
 import com.alibaba.cloud.ai.copilot.store.HarnessDatabaseStoreAdapter;
 import com.alibaba.cloud.ai.copilot.satoken.utils.LoginHelper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.agentscope.core.agent.Event;
 import io.agentscope.core.agent.EventType;
 import io.agentscope.core.agent.RuntimeContext;
@@ -49,6 +53,8 @@ public class ChatServiceImpl implements ChatService {
     private final ChatMessageMapper chatMessageMapper;
     private final HarnessToolkitBuilder harnessToolkitBuilder;
     private final HarnessDatabaseStoreAdapter harnessDatabaseStoreAdapter;
+    private final AgentScopeHookRegistry hookRegistry;
+    private final ObjectMapper objectMapper;
 
     @Override
     public void handleBuilderMode(ChatRequest request, SseEmitter emitter) {
@@ -66,6 +72,10 @@ public class ChatServiceImpl implements ChatService {
             persistUserMessage(finalConversationId, request.getMessage().getContent());
             conversationService.incrementMessageCount(finalConversationId);
             sseEventService.sendConversationId(emitter, finalConversationId);
+
+            // 设置 SSE hook 上下文
+            AgentScopeSseHookContext sseCtx = new AgentScopeSseHookContext(emitter, sseEventService, objectMapper);
+            AgentScopeSseHookContextHolder.set(sseCtx);
 
             HarnessAgent agent = buildHarnessAgent(request);
 
@@ -103,8 +113,16 @@ public class ChatServiceImpl implements ChatService {
                             event -> handleEvent(emitter, event),
                             error -> {
                                 log.error("HarnessAgent execution error", error);
-                                if (completed.compareAndSet(false, true)) {
-                                    sseEventService.sendComplete(emitter);
+                                try {
+                                    updateConversationTitleIfNeeded(
+                                            finalConversationId,
+                                            request.getMessage().getContent(),
+                                            userId);
+                                } finally {
+                                    if (completed.compareAndSet(false, true)) {
+                                        sseEventService.sendComplete(emitter);
+                                    }
+                                    AgentScopeSseHookContextHolder.clear();
                                 }
                             },
                             () -> {
@@ -117,11 +135,13 @@ public class ChatServiceImpl implements ChatService {
                                     if (completed.compareAndSet(false, true)) {
                                         sseEventService.sendComplete(emitter);
                                     }
+                                    AgentScopeSseHookContextHolder.clear();
                                 }
                             });
         } catch (Exception e) {
             log.error("Unexpected error in harness mode", e);
             sseEventService.sendComplete(emitter);
+            AgentScopeSseHookContextHolder.clear();
         }
     }
 
@@ -163,6 +183,9 @@ public class ChatServiceImpl implements ChatService {
 
                         // 工具集 - 包含文件操作、代码执行、MCP 工具等
                         .toolkit(harnessToolkitBuilder.build())
+
+                        // 注册 hooks - SSE 事件推送 + 业务逻辑
+                        .hooks(hookRegistry.hooks(true))
 
                         // 最大迭代次数 - 防止 Agent 陷入无限循环
                         .maxIters(150)

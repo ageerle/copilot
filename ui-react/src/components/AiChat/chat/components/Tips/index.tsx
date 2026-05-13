@@ -48,7 +48,7 @@ const Tips = (props: TipsProps) => {
           <div className="mt-5 flex flex-col gap-3">
             {mode === ChatMode.Builder && (
               <div className="grid grid-cols-2 gap-3">
-                <button className="w-full rounded-lg border border-gray-200/80 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:border-[#2a2b31] dark:hover:bg-white/[0.03]">
+                <button className="w-full rounded-lg border border-gray-300 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:border-[#3a3b42] dark:hover:bg-white/[0.03]">
                   <div className="flex items-center gap-3 text-gray-300">
                     <Upload className="h-3 w-3" />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -57,7 +57,7 @@ const Tips = (props: TipsProps) => {
                   </div>
                 </button>
                 <button
-                  className="w-full rounded-lg border border-gray-200/80 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:border-[#2a2b31] dark:hover:bg-white/[0.03]"
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-left transition-colors hover:bg-gray-50 dark:border-[#3a3b42] dark:hover:bg-white/[0.03]"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <div className="flex items-center gap-3 text-gray-300">
@@ -70,7 +70,7 @@ const Tips = (props: TipsProps) => {
           </div>
         </div>
       ) : (
-        <div className="flex w-full flex-col gap-2 rounded-lg border border-gray-200/70 p-4 transition-colors dark:border-[#2a2b31]">
+        <div className="flex w-full flex-col gap-2 rounded-lg border border-gray-300 p-4 transition-colors dark:border-[#3a3b42]">
           <div className="flex items-center gap-2">
             <Code2 className="h-5 w-5 text-blue-500 dark:text-blue-400" />
             <span className="font-medium text-gray-900 dark:text-gray-100">

@@ -1,0 +1,51 @@
+package com.alibaba.cloud.ai.copilot.hook.agentscope;
+
+import io.agentscope.core.hook.Hook;
+import io.agentscope.core.hook.HookEvent;
+import io.agentscope.core.hook.ReasoningChunkEvent;
+import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Mono;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * 推理流式 SSE Hook
+ * 发送 reasoning_chunk 事件到前端
+ */
+@Slf4j
+public class AgentScopeReasoningChunkSseHook implements Hook {
+
+    @Override
+    public int priority() {
+        return 6;
+    }
+
+    @Override
+    public <T extends HookEvent> Mono<T> onEvent(T event) {
+        if (event instanceof ReasoningChunkEvent chunkEvent) {
+            AgentScopeSseHookContext sseCtx = AgentScopeSseHookContextHolder.get();
+            if (sseCtx == null || sseCtx.isCompleted()) {
+                return Mono.just(event);
+            }
+
+            String modelName = chunkEvent.getModelName();
+            String chunk = "";
+            try {
+                if (chunkEvent.getIncrementalChunk() != null) {
+                    chunk = sseCtx.truncate(chunkEvent.getIncrementalChunk().getTextContent(), 200);
+                }
+            } catch (Exception ignored) {}
+
+            if (chunk == null || chunk.isEmpty()) {
+                return Mono.just(event);
+            }
+
+            Map<String, Object> data = new HashMap<>();
+            data.put("model", modelName != null ? modelName : "");
+            data.put("chunk", chunk);
+            sseCtx.sendEvent("reasoning_chunk", data);
+        }
+        return Mono.just(event);
+    }
+}

@@ -592,6 +592,14 @@ export const BaseChat = ({uuid: propUuid}: { uuid?: string }) => {
                                                     continue;
                                                 }
 
+                                                // 处理 thinking 消息
+                                                if (eventType === 'thinking' && parsed.data && parsed.data.content) {
+                                                    const content = parsed.data.content;
+                                                    if (content) {
+                                                        transformedText += content;
+                                                    }
+                                                }
+
                                                 // 处理文本消息
                                                 if (eventType === 'text' && parsed.data && parsed.data.content) {
                                                     // 转换为 AI SDK 期望的格式
@@ -1144,40 +1152,13 @@ export const BaseChat = ({uuid: propUuid}: { uuid?: string }) => {
 
                     {isLoading && (
                         <div className="group" key="loading-indicator">
-                            <div
-                                className="flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.02] transition-colors">
-                                <div
-                                    className="w-6 h-6 rounded-md bg-[rgba(45,45,45)] text-gray-400 flex items-center justify-center text-xs border border-gray-700/50">
-                                    <svg
-                                        className="w-4 h-4 animate-spin"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                    >
-                                        <circle
-                                            className="opacity-25"
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            strokeWidth="3"
-                                        />
-                                        <path
-                                            className="opacity-75"
-                                            fill="currentColor"
-                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                        />
-                                    </svg>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-24 h-4 rounded bg-gray-700/50 animate-pulse"/>
-                                        <div className="w-32 h-4 rounded bg-gray-700/50 animate-pulse"/>
-                                        <div className="w-16 h-4 rounded bg-gray-700/50 animate-pulse"/>
-                                    </div>
-                                    <div className="mt-2 space-y-2">
-                                        <div className="w-full h-3 rounded bg-gray-700/50 animate-pulse"/>
-                                        <div className="w-4/5 h-3 rounded bg-gray-700/50 animate-pulse"/>
+                            <div className="flex flex-col gap-2 px-2 py-1.5 rounded-lg">
+                                <div className="flex items-start gap-2">
+                                    <div className="w-6 h-6 rounded-full bg-gray-200 dark:bg-[rgba(45,45,45)] border border-gray-200 dark:border-gray-700/50 animate-pulse"/>
+                                    <div className="flex-1 min-w-0 space-y-2.5 pt-0.5">
+                                        <div className="w-4/5 h-3.5 rounded bg-gray-200 dark:bg-gray-700/50 animate-pulse" style={{ animationDelay: '0ms' }}/>
+                                        <div className="w-full h-3.5 rounded bg-gray-200 dark:bg-gray-700/50 animate-pulse" style={{ animationDelay: '150ms' }}/>
+                                        <div className="w-3/5 h-3.5 rounded bg-gray-200 dark:bg-gray-700/50 animate-pulse" style={{ animationDelay: '300ms' }}/>
                                     </div>
                                 </div>
                             </div>

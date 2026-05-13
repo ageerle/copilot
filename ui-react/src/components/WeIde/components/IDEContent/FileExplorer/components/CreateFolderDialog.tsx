@@ -26,7 +26,7 @@ export function CreateFolderDialog({ path, onSubmit, onCancel }: CreateFolderDia
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <form 
         onSubmit={handleSubmit}
-        className="bg-[#1a1a1c] rounded-lg shadow-xl w-[400px] p-4"
+        className="bg-[#1a1a1c] rounded-lg shadow-xl w-[400px] p-4 border border-[#3a3b42]"
       >
         <h2 className="text-sm font-semibold mb-4">Create New Folder</h2>
         <div className="mb-4">
@@ -38,7 +38,7 @@ export function CreateFolderDialog({ path, onSubmit, onCancel }: CreateFolderDia
               setError('');
             }}
             placeholder="Enter folder name"
-            className="w-full px-3 py-2 bg-[#3c3c3c] rounded border border-[#454545] text-sm focus:border-[#007acc] outline-none"
+            className="w-full px-3 py-2 bg-[#3c3c3c] rounded border border-[#555555] text-sm focus:border-[#007acc] outline-none"
             autoFocus
           />
           {error && <p className="text-red-500 text-xs mt-1">{error}</p>}

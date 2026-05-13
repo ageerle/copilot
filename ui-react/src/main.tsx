@@ -7,8 +7,6 @@ import { setupFetchInterceptors } from './utils/fetchInterceptor';
 // Initialize global fetch interceptors before app mounts
 setupFetchInterceptors();
 
-ReactDOM.createRoot(document.getElementById('root')!).render(  
-  <React.StrictMode>  
-    <App />  
-  </React.StrictMode>  
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <App />
 );

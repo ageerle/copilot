@@ -255,7 +255,7 @@ sa-token:
 logging:
   level:
     org.springframework.ai: info
-    com.alibaba.cloud.ai.copilot: @logging.level@
+    com.alibaba.cloud.ai.copilot: debug
     org.springframework: info
     org.mybatis.spring.mapper: info
   config: classpath:logback-plus.xml

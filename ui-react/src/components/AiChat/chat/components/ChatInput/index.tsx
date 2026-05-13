@@ -396,7 +396,7 @@ export const ChatInput: React.FC<ChatInputPropsType> = ({
         <OptimizedPromptWord input={input} setInput={setInput}></OptimizedPromptWord>
         </div>
 
-        <div className="relative rounded-xl border border-gray-200/70 bg-transparent dark:border-[#2a2b31]">
+        <div className="relative rounded-xl border border-gray-300 bg-transparent dark:border-[#3a3b42]">
           <div
             className={classNames(
               "relative",
@@ -499,7 +499,7 @@ export const ChatInput: React.FC<ChatInputPropsType> = ({
             )}
 
 
-            <div className="flex items-center justify-between border-t border-gray-200/70 px-2 py-2 dark:border-[#2a2b31]">
+            <div className="flex items-center justify-between border-t border-gray-300 px-2 py-2 dark:border-[#3a3b42]">
               <div className="flex items-center">
                 <UploadButtons
                   isLoading={isLoading}
