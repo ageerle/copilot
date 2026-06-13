@@ -6,7 +6,6 @@ import {toast} from "react-hot-toast"
 import useUserStore from "../../stores/userSlice"
 import {useTranslation} from "react-i18next"
 import {TabType} from "."
-import { safeJsonStringify } from "../../utils/safeJsonParse"
 
 
 type LoginFormProps = {
@@ -15,15 +14,14 @@ type LoginFormProps = {
 }
 
 const LoginForm = ({ onSuccess, onTabChange }: LoginFormProps) => {
-  const [loginMethod, setLoginMethod] = useState<"account" | "github" | "wechat">(
+  const [loginMethod] = useState<"account" | "github" | "wechat">(
     "account"
   )
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const [oauthLoading, setOauthLoading] = useState(false)
   const [error, setError] = useState("")
-  const { setUser, setToken, setRememberMe, fetchUser } = useUserStore()
+  const { setToken, setRememberMe, fetchUser } = useUserStore()
   const [rememberMe, setRememberMeState] = useState(true)
   const { t } = useTranslation()
 
@@ -76,8 +74,6 @@ const LoginForm = ({ onSuccess, onTabChange }: LoginFormProps) => {
 
       const payload = wrapper?.data ?? wrapper
       const token = payload?.token
-      const userInfo = payload?.userInfo
-
       if (!token) throw new Error("Missing token")
 
       setToken(token)
@@ -99,7 +95,7 @@ const LoginForm = ({ onSuccess, onTabChange }: LoginFormProps) => {
       }, 150)
     } catch (err) {
       const message = err instanceof Error ? err.message : "Login failed"
-      setError(t(`login.${message}`) || message)
+      setError(t(`login.${message}`, { defaultValue: message }))
     } finally {
       setLoading(false)
     }

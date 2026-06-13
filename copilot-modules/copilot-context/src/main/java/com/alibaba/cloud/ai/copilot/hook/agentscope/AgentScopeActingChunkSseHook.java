@@ -4,6 +4,7 @@ import io.agentscope.core.hook.ActingChunkEvent;
 import io.agentscope.core.hook.Hook;
 import io.agentscope.core.hook.HookEvent;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
@@ -14,6 +15,7 @@ import java.util.Map;
  * 发送 acting_chunk 事件到前端
  */
 @Slf4j
+@Component
 public class AgentScopeActingChunkSseHook implements Hook {
 
     @Override

@@ -4,7 +4,7 @@
 
 # 服务器配置
 server:
-  port: 6039
+  port: 6040
   servlet:
     context-path: /
 

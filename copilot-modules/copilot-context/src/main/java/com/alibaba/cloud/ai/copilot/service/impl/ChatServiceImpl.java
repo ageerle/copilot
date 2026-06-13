@@ -15,10 +15,10 @@ import com.alibaba.cloud.ai.copilot.service.harness.HarnessToolkitBuilder;
 import com.alibaba.cloud.ai.copilot.store.HarnessDatabaseStoreAdapter;
 import com.alibaba.cloud.ai.copilot.satoken.utils.LoginHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.agentscope.core.agent.Event;
-import io.agentscope.core.agent.EventType;
 import io.agentscope.core.agent.RuntimeContext;
-import io.agentscope.core.agent.StreamOptions;
+import io.agentscope.core.event.AgentEvent;
+import io.agentscope.core.event.TextBlockDeltaEvent;
+import io.agentscope.core.event.ThinkingBlockDeltaEvent;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.TextBlock;
@@ -30,8 +30,6 @@ import io.agentscope.harness.agent.filesystem.spec.LocalFilesystemSpec;
 import io.agentscope.harness.agent.filesystem.spec.RemoteFilesystemSpec;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
 import io.agentscope.harness.agent.memory.compaction.ToolResultEvictionConfig;
-import io.agentscope.harness.agent.sandbox.SandboxDistributedOptions;
-import io.agentscope.harness.agent.filesystem.spec.DockerFilesystemSpec;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -94,23 +92,10 @@ public class ChatServiceImpl implements ChatService {
                             .content(TextBlock.builder().text(request.getMessage().getContent()).build())
                             .build();
 
-            // 配置流式输出选项
-            // - eventTypes: 订阅的事件类型，ALL 表示接收所有事件（思考过程、工具调用、回复内容等）
-            // - incremental: 增量模式，每次只推送新增内容而非累积内容
-            // - includeReasoningChunk: 包含推理过程的增量片段（模型思考时的实时输出）
-            // - includeReasoningResult: 包含推理过程的最终结果（思考完成后的汇总）
-            StreamOptions streamOptions =
-                    StreamOptions.builder()
-                            .eventTypes(EventType.ALL)
-                            .incremental(true)
-                            .includeReasoningChunk(true)
-                            .includeReasoningResult(true)
-                            .build();
-
             AtomicBoolean completed = new AtomicBoolean(false);
-            agent.stream(List.of(userMsg), streamOptions, runtimeContext)
+            agent.streamEvents(List.of(userMsg), runtimeContext)
                     .subscribe(
-                            event -> handleEvent(emitter, event),
+                            event -> handleAgentEvent(emitter, event),
                             error -> {
                                 log.error("HarnessAgent execution error", error);
                                 try {
@@ -228,24 +213,14 @@ public class ChatServiceImpl implements ChatService {
                             .isolationScope(IsolationScope.USER)
                             .anonymousUserId(fs.getAnonymousUserId()));
             case "sandbox" -> {
-                DockerFilesystemSpec docker = new DockerFilesystemSpec();
-                AppProperties.Harness.Filesystem.Docker dc = fs.getDocker();
-                if (dc != null) {
-                    if (dc.getImage() != null && !dc.getImage().isBlank()) {
-                        docker.image(dc.getImage());
-                    }
-                    if (dc.getWorkspaceRoot() != null && !dc.getWorkspaceRoot().isBlank()) {
-                        docker.workspaceRoot(dc.getWorkspaceRoot());
-                    }
-                    if (dc.getNetwork() != null && !dc.getNetwork().isBlank()) {
-                        docker.network(dc.getNetwork());
-                    }
-                }
-                builder.filesystem(docker)
-                        .sandboxDistributed(
-                                SandboxDistributedOptions.builder()
-                                        .requireDistributed(fs.isSandboxRequireDistributed())
-                                        .build());
+                // AgentScope v2 将 Docker/K8s/E2B 等沙箱实现从 harness core 抽取到独立扩展模块。
+                // 如需 Docker 沙箱支持，请在 pom.xml 中添加对应的沙箱扩展依赖。
+                // 当前回退到本地文件系统模式。
+                log.warn("AgentScope v2 sandbox mode requires an extension dependency " +
+                        "(e.g. agentscope-extensions-sandbox-docker). Falling back to local filesystem.");
+                builder.filesystem(new LocalFilesystemSpec()
+                        .executeTimeoutSeconds(fs.getExecuteTimeoutSeconds())
+                        .maxOutputBytes(fs.getMaxOutputBytes()));
             }
             default -> builder.filesystem(new LocalFilesystemSpec()
                             .executeTimeoutSeconds(fs.getExecuteTimeoutSeconds())
@@ -267,19 +242,23 @@ public class ChatServiceImpl implements ChatService {
                 + "前端开发默认使用 HTML + Tailwind CSS，保持简洁专业的风格。";
     }
 
-    private void handleEvent(SseEmitter emitter, Event event) {
-        if (event == null || event.getMessage() == null) {
+    private void handleAgentEvent(SseEmitter emitter, AgentEvent event) {
+        if (event == null) {
             return;
         }
-        String text = event.getMessage().getTextContent();
-        if (text == null || text.isBlank()) {
+        if (event instanceof ThinkingBlockDeltaEvent thinking) {
+            String text = thinking.getDelta();
+            if (text != null && !text.isBlank()) {
+                sseEventService.sendThinkingContent(emitter, text);
+            }
             return;
         }
-        if (event.getType() == EventType.REASONING) {
-            sseEventService.sendThinkingContent(emitter, text);
-            return;
+        if (event instanceof TextBlockDeltaEvent textDelta) {
+            String text = textDelta.getDelta();
+            if (text != null && !text.isBlank()) {
+                sseEventService.sendChatContent(emitter, text);
+            }
         }
-        sseEventService.sendChatContent(emitter, text);
     }
 
     private void persistUserMessage(String conversationId, String content) {

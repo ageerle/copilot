@@ -81,7 +81,7 @@ export default defineConfig(async ({ mode }) => {
         // 注意：如果在开发环境设置了 APP_BASE_URL，则前端会直连后端，代理配置将不会生效
         // 为保持单一入口，你也可以只设置 APP_BASE_URL，这里将自动沿用
         get '/api'() {
-          const target = env.APP_BASE_URL || env.VITE_PROXY_TARGET || 'http://localhost:6039';
+          const target = env.APP_BASE_URL || env.VITE_PROXY_TARGET || 'http://localhost:6040';
           return {
             target,
             changeOrigin: true,
@@ -90,7 +90,7 @@ export default defineConfig(async ({ mode }) => {
         },
         // 认证等未带 /api 前缀的后端路由，开发环境也通过代理以避免跨域
         get '/auth'() {
-          const target = env.APP_BASE_URL || env.VITE_PROXY_TARGET || 'http://localhost:6039';
+          const target = env.APP_BASE_URL || env.VITE_PROXY_TARGET || 'http://localhost:6040';
           return {
             target,
             changeOrigin: true,
@@ -98,7 +98,7 @@ export default defineConfig(async ({ mode }) => {
           };
         },
         get '/admin'() {
-          const target = env.APP_BASE_URL || env.VITE_PROXY_TARGET || 'http://localhost:6039';
+          const target = env.APP_BASE_URL || env.VITE_PROXY_TARGET || 'http://localhost:6040';
           return {
             target,
             changeOrigin: true,

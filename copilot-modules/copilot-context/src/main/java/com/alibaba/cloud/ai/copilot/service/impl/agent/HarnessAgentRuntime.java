@@ -4,8 +4,10 @@ import com.alibaba.cloud.ai.copilot.config.AppProperties;
 import com.alibaba.cloud.ai.copilot.domain.dto.ChatRequest;
 import com.alibaba.cloud.ai.copilot.domain.entity.ModelConfigEntity;
 import com.alibaba.cloud.ai.copilot.service.SseEventService;
-import io.agentscope.core.agent.EventType;
 import io.agentscope.core.agent.RuntimeContext;
+import io.agentscope.core.event.AgentEvent;
+import io.agentscope.core.event.TextBlockDeltaEvent;
+import io.agentscope.core.event.ThinkingBlockDeltaEvent;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.model.Model;
@@ -51,23 +53,23 @@ public class HarnessAgentRuntime {
                 .textContent(request.getMessage().getContent())
                 .build();
 
-        return agent.stream(userMsg, runtimeContext)
-                .filter(event -> event.getMessage() != null)
-                .flatMap(event -> mapEvent(event, emitter));
+        return agent.streamEvents(userMsg, runtimeContext)
+                .flatMap(event -> mapAgentEvent(event, emitter));
     }
 
-    private Flux<String> mapEvent(io.agentscope.core.agent.Event event, SseEmitter emitter) {
-        String content = event.getMessage().getTextContent();
-        if (content == null || content.isBlank()) {
-            return Flux.empty();
+    private Flux<String> mapAgentEvent(AgentEvent event, SseEmitter emitter) {
+        if (event instanceof ThinkingBlockDeltaEvent thinking) {
+            String text = thinking.getDelta();
+            if (text != null && !text.isBlank()) {
+                sseEventService.sendChatContent(emitter, text);
+                return Flux.just(text);
+            }
         }
-
-        if (event.getType() == EventType.REASONING) {
-            sseEventService.sendChatContent(emitter, content);
-            return Flux.just(content);
-        }
-        if (event.getType() == EventType.TOOL_RESULT) {
-            sseEventService.sendThinkingContent(emitter, content);
+        if (event instanceof TextBlockDeltaEvent textDelta) {
+            String text = textDelta.getDelta();
+            if (text != null && !text.isBlank()) {
+                sseEventService.sendThinkingContent(emitter, text);
+            }
         }
         return Flux.empty();
     }

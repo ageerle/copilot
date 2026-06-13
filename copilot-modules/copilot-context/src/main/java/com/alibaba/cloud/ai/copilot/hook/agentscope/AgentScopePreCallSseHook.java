@@ -5,6 +5,7 @@ import io.agentscope.core.hook.HookEvent;
 import io.agentscope.core.hook.PreCallEvent;
 import io.agentscope.core.message.Msg;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
@@ -16,6 +17,7 @@ import java.util.Map;
  * 发送 task_start 事件到前端
  */
 @Slf4j
+@Component
 public class AgentScopePreCallSseHook implements Hook {
 
     @Override

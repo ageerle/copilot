@@ -561,7 +561,7 @@
     },
     "generating": "Generating...",
     "generate_success": "Generated successfully",
-    "prompt": "1. Encapsulate components based on images when possible; 2. Use blob links for images; 3. Create a 1:1 replica of the image, refer to margins, sizes, fonts and backgrounds in the JSON array! 4. Use TypeScript; 5. For repeating elements in the image, use components when possible without breaking the original style; 6. Use text overflow styles, identify single/multi-line text, truncate with '...' for overflow to maintain aesthetics; 7. Use <div> <span> <img> <a> <input> tags, avoid <h1><h2> etc.; 8. Simplify CSS names, prefer flex layout over absolute positioning when possible; 9. Fix z-index issues where needed; 10. Maintain precise spacing as per reference data. Important: Don't omit any code!!!!",
+    "prompt": "1.基于图片，能封装组件就尽量封装； 2.我的图片使用blob链接 3.1:1还原这个图片，这个json数组你要参考边距和大小和字体和背景！ 生成css的color必须和json的color保持一摸一样4.用ts. 5.图片里面可能会有重复的地方，尽量用组件，在不破坏原有样式的情况下，尽量复用。6.文本类都需要使用文本溢出样式，注意识别是单行还是多行文本，溢出用'...'截断，确保文本长度变化时页面美观； 7.用<div> <span> <img> <a> <input> 等标签,不要用<h1><h2>等等这些标签 8.css名也帮我改一下，css很多css太复杂了，可以简单一点,尽可能用flex布局，有一些情况不一定要用absolute。 9.层级不一定对，所以需要你修复 10.上下左右间距参考数据尽量还原 最后强调！代码不要省略！！！！",
     "generate_failed": "Generation failed",
     "get_code": "Get Code",
     "select_tech": "Select Technology Stack",
@@ -571,10 +571,10 @@
       "miniprogram": "WeChat Mini Program"
     },
     "prompts": {
-      "base": "Please generate based on the uploaded design",
-      "react": "React code using TypeScript and Tailwind CSS, project must have a start entry, and ensure the project can run, and ensure the code is符合最佳实践和性能优化。",
-      "vue": "Vue3 code using TypeScript and Composition API, with Tailwind CSS styling, ensuring Vue best practices.",
-      "miniprogram": "WeChat Mini Program code using the native framework with WXSS styling, following Mini Program development standards and best practices. Use rpx units for the interface, and remove the status bar if present in the design. 写小程序注意样式和宽度"
+      "base": "请根据上传的设计稿生成",
+      "react": "React 代码，使用 TypeScript，样式使用 Tailwind CSS, 项目要用启动入口，并且保证项目能跑，并确保代码符合最佳实践和性能优化。",
+      "vue": "Vue3 代码，使用 TypeScript 和组合式API，样式使用 Tailwind CSS，并确保代码符合 Vue 的最佳实践。",
+      "miniprogram": "微信小程序代码，使用原生小程序框架，样式采用 WXSS，确保符合小程序开发规范和最佳实践。用rpx单位来写这个界面，假如设计稿上面有状态栏请你去掉, 写小程序注意样式和宽度"
     }
   },
   "update": {

@@ -1,7 +1,6 @@
 import type {User} from "@/stores/userSlice"
 import { apiUrl } from "./base"
 import { safeJsonParse } from "@/utils/safeJsonParse"
-import { safeJsonStringify } from "@/utils/safeJsonParse"
 
 export const authService = {
   async login(username: string, password: string) {
@@ -18,7 +17,12 @@ export const authService = {
     const data = safeJsonParse(rawText)
     console.log('[auth.login] 解析后数据:', data)
 
-    if (!res.ok || (typeof data?.code === 'number' && data.code !== 200)) throw data
+    if (!data) {
+      throw new Error(res.ok ? "Empty login response" : (res.statusText || "Login failed"))
+    }
+    if (!res.ok || (typeof data?.code === 'number' && data.code !== 200)) {
+      throw new Error(data?.msg || data?.message || res.statusText || "Login failed")
+    }
     return data
   },
   async getUserInfo(token: string): Promise<User> {

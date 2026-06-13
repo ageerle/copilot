@@ -7,6 +7,7 @@ import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.message.ToolUseBlock;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
@@ -19,6 +20,7 @@ import java.util.Map;
  * 发送 reasoning 事件到前端（包含文本内容和工具调用决策）
  */
 @Slf4j
+@Component
 public class AgentScopePostReasoningSseHook implements Hook {
 
     @Override

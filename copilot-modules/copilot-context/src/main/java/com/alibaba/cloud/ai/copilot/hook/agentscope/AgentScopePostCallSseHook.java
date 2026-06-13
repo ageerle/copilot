@@ -5,6 +5,7 @@ import io.agentscope.core.hook.HookEvent;
 import io.agentscope.core.hook.PostCallEvent;
 import io.agentscope.core.message.Msg;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
@@ -15,6 +16,7 @@ import java.util.Map;
  * 发送 task_complete 事件到前端
  */
 @Slf4j
+@Component
 public class AgentScopePostCallSseHook implements Hook {
 
     @Override

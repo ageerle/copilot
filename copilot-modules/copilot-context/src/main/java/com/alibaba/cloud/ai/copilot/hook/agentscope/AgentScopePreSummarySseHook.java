@@ -4,6 +4,7 @@ import io.agentscope.core.hook.Hook;
 import io.agentscope.core.hook.HookEvent;
 import io.agentscope.core.hook.PreSummaryEvent;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
@@ -14,6 +15,7 @@ import java.util.Map;
  * 发送 summary_start 事件到前端
  */
 @Slf4j
+@Component
 public class AgentScopePreSummarySseHook implements Hook {
 
     @Override

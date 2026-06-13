@@ -2,7 +2,11 @@
  * 自定义JSON解析器，用于处理大整数精度丢失问题
  * 通过预处理JSON字符串来保持大整数的精度
  */
-export function safeJsonParse(jsonString: string): any {
+export function safeJsonParse(jsonString: string | null | undefined): any {
+  if (jsonString == null || jsonString.trim() === '') {
+    return null
+  }
+
   // 预处理JSON字符串，将大整数替换为字符串字面量
   // 匹配JSON中的数值：冒号后跟16位以上的数字，但排除已经在字符串中的数字
   const processedJsonString = jsonString.replace(/":\s*(\d{16,})/g, '": "$1"');

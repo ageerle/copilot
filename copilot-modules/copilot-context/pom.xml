@@ -67,12 +67,12 @@
         <dependency>
             <groupId>io.agentscope</groupId>
             <artifactId>agentscope-core</artifactId>
-            <version>1.0.13-SNAPSHOT</version>
+            <version>${agentscope.version}</version>
         </dependency>
         <dependency>
             <groupId>io.agentscope</groupId>
             <artifactId>agentscope-harness</artifactId>
-            <version>1.0.13-SNAPSHOT</version>
+            <version>${agentscope.version}</version>
         </dependency>
 
         <!-- JSON Schema Validator - AgentScope ToolValidator 依赖 -->
